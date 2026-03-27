@@ -1,0 +1,1538 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bear Put Spread — Повний Гід</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181b22;
+    --border: #1e2230;
+    --accent: #e8431a;
+    --accent2: #f0724a;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --blue: #3b82f6;
+    --purple: #a855f7;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --dim: #94a3b8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* NOISE TEXTURE */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0;
+  }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+    position: relative; z-index: 1;
+  }
+
+  /* HERO */
+  .hero {
+    padding: 60px 0 48px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+  }
+
+  .hero-tag {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 3px 10px;
+    margin-bottom: 20px;
+  }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(36px, 6vw, 64px);
+    font-weight: 800;
+    line-height: 1.0;
+    letter-spacing: -0.02em;
+    color: #c8cfd9;
+  }
+
+  .hero h1 span {
+    color: var(--accent);
+  }
+
+  /* PAYOFF DIAGRAM */
+  .payoff-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 28px;
+    margin-bottom: 48px;
+  }
+
+  .payoff-wrap h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  svg.payoff { width: 100%; height: auto; display: block; }
+
+  /* SECTIONS */
+  .section {
+    margin-bottom: 56px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 28px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    min-width: 28px;
+  }
+
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: #c8cfd9;
+  }
+
+  /* STRUCTURE BOX */
+  .struct-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 640px) { .struct-grid { grid-template-columns: 1fr; } }
+
+  .leg {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 18px;
+    position: relative;
+  }
+
+  .leg.long { border-left: 3px solid var(--green); }
+  .leg.short { border-left: 3px solid var(--red); }
+
+  .leg-action {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .leg.long .leg-action { color: var(--green); }
+  .leg.short .leg-action { color: var(--red); }
+
+  .leg-desc {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: #c8cfd9;
+  }
+
+  .leg-note {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* CARDS */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  @media (max-width: 580px) { .card-grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px;
+  }
+
+  .card-icon {
+    font-size: 22px;
+    margin-bottom: 10px;
+  }
+
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #c8cfd9;
+    margin-bottom: 8px;
+  }
+
+  .card p { color: var(--dim); font-size: 12.5px; }
+
+  /* CONDITIONS TABLE */
+  .cond-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+  }
+
+  .cond-table th {
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .cond-table td {
+    padding: 10px 12px;
+    font-size: 12.5px;
+    border-bottom: 1px solid #0f1118;
+    vertical-align: top;
+    color: var(--dim);
+  }
+
+  .cond-table tr:hover td { background: var(--surface2); }
+
+  .tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 8px;
+    letter-spacing: 0.05em;
+  }
+  .tag.green { background: rgba(34,197,94,0.12); color: var(--green); }
+  .tag.red { background: rgba(239,68,68,0.12); color: var(--red); }
+  .tag.yellow { background: rgba(245,158,11,0.12); color: var(--yellow); }
+  .tag.blue { background: rgba(59,130,246,0.12); color: var(--blue); }
+  .tag.purple { background: rgba(168,85,247,0.12); color: var(--purple); }
+  .tag.orange { background: rgba(232,67,26,0.12); color: var(--accent2); }
+
+  /* STRIKE VARIANTS */
+  .strike-var {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 18px 20px 14px;
+    margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 16px 16px;
+    align-items: start;
+  }
+  .strike-strip {
+    grid-column: 1 / -1;
+    margin-top: 2px;
+  }
+
+  .sv-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  .sv-body { font-size: 12.5px; color: var(--dim); }
+  .sv-body strong { color: var(--text); }
+
+  /* CODE BLOCK */
+  .code-block {
+    background: #070810;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 16px 20px;
+    font-size: 12px;
+    color: var(--dim);
+    margin: 14px 0;
+    line-height: 1.9;
+  }
+
+  .code-block .hl { color: var(--accent2); }
+  .code-block .val { color: var(--green); }
+  .code-block .cmt { color: #3d4a5c; }
+
+  /* TIMELINE */
+  .timeline {
+    position: relative;
+    padding-left: 24px;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 6px; top: 0; bottom: 0;
+    width: 1px;
+    background: var(--border);
+  }
+
+  .tl-item {
+    position: relative;
+    margin-bottom: 24px;
+  }
+
+  .tl-item::before {
+    content: '';
+    position: absolute;
+    left: -20px; top: 7px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .tl-item.warn::before { background: var(--yellow); }
+  .tl-item.danger::before { background: var(--red); }
+  .tl-item.safe::before { background: var(--green); }
+
+  .tl-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: #c8cfd9;
+    margin-bottom: 4px;
+  }
+
+  .tl-text { font-size: 12.5px; color: var(--dim); }
+
+  /* SCENARIO BOXES */
+  .scenario-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 640px) { .scenario-row { grid-template-columns: 1fr; } }
+
+  .scenario {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px;
+  }
+
+  .scenario.bull { border-top: 2px solid var(--green); }
+  .scenario.flat { border-top: 2px solid var(--yellow); }
+  .scenario.bear { border-top: 2px solid var(--red); }
+
+  .sc-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .scenario.bull .sc-label { color: var(--green); }
+  .scenario.flat .sc-label { color: var(--yellow); }
+  .scenario.bear .sc-label { color: var(--red); }
+
+  .sc-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: #c8cfd9; margin-bottom: 6px; }
+  .sc-body { font-size: 12px; color: var(--muted); }
+
+  /* HEDGE ACCORDION */
+  .hedge-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+
+  .hedge-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    cursor: pointer;
+    user-select: none;
+    gap: 12px;
+  }
+  .hedge-toggle:hover { background: var(--surface2); }
+
+  .hi-left { display: flex; align-items: center; gap: 14px; }
+
+  .hi-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--blue);
+  }
+
+  .hi-brief { font-size: 11.5px; color: var(--muted); }
+
+  .hi-arrow {
+    color: var(--muted);
+    font-size: 11px;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  .hedge-item.open .hi-arrow { transform: rotate(180deg); }
+
+  .hi-body {
+    display: none;
+    padding: 14px 20px 18px;
+    font-size: 12.5px;
+    color: var(--dim);
+    border-top: 1px solid var(--border);
+  }
+  .hedge-item.open .hi-body { display: block; }
+  .hi-body strong { color: var(--text); }
+
+  /* RULE BLOCKS */
+  .rule {
+    display: flex;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px 20px 16px 14px;
+    margin-bottom: 10px;
+    align-items: flex-start;
+  }
+
+  .rule-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--border);
+    line-height: 1.3;
+    min-width: 20px;
+    flex-shrink: 0;
+  }
+
+  .rule-body { font-size: 12.5px; color: var(--dim); }
+  .rule-body strong { color: var(--text); display: block; margin-bottom: 4px; font-size: 13px; }
+
+  /* PNL ZONES */
+  .zones {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 600px) { .zones { grid-template-columns: repeat(2, 1fr); } }
+
+  .zone {
+    background: var(--surface);
+    padding: 16px 14px;
+    text-align: center;
+  }
+
+  .zone-price { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .zone-result {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .zone-result.profit { color: var(--green); }
+  .zone-result.max-profit { color: #4ade80; }
+  .zone-result.loss { color: var(--yellow); }
+  .zone-result.max-loss { color: var(--red); }
+  .zone-desc { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* CLOSE RULES */
+  .close-rule {
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    background: var(--surface);
+    margin-bottom: 10px;
+    font-size: 12.5px;
+    color: var(--dim);
+  }
+  .close-rule strong { color: #c8cfd9; display: block; margin-bottom: 3px; font-family: 'Syne', sans-serif; font-size: 13px; }
+  .close-rule.green { border-color: var(--green); }
+  .close-rule.yellow { border-color: var(--yellow); }
+  .close-rule.red { border-color: var(--red); }
+  .close-rule.blue { border-color: var(--blue); }
+
+  /* WARNING BOX */
+  .warn-box {
+    background: rgba(245,158,11,0.06);
+    border: 1px solid rgba(245,158,11,0.25);
+    padding: 16px 20px;
+    margin: 16px 0;
+    font-size: 12.5px;
+    color: var(--dim);
+  }
+  .warn-box strong { color: var(--yellow); }
+
+  .info-box {
+    background: rgba(59,130,246,0.06);
+    border: 1px solid rgba(59,130,246,0.2);
+    padding: 16px 20px;
+    margin: 16px 0;
+    font-size: 12.5px;
+    color: var(--dim);
+  }
+  .info-box strong { color: var(--blue); }
+
+  /* FOOTER */
+  .footer {
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+
+  h4 { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: #c8cfd9; margin-bottom: 12px; margin-top: 20px; }
+
+  /* POSITION BUILDER BUTTON */
+  .builder-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+    padding: 11px 20px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+    position: relative;
+  }
+  .builder-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .builder-btn:hover { color: #c8cfd9; box-shadow: 0 0 18px rgba(232,67,26,0.35); }
+  .builder-btn:hover::before { opacity: 1; }
+  .builder-btn-icon, .builder-btn-text, .builder-btn-arrow { position: relative; z-index: 1; }
+  .builder-btn-icon { font-size: 14px; opacity: 0.7; }
+  .builder-btn-arrow { font-size: 14px; transition: transform 0.2s; }
+  .builder-btn:hover .builder-btn-arrow { transform: translate(2px, -2px); }
+
+  /* ── GREEKS BIDIRECTIONAL CHART ─────────────────────────────── */
+  .va-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 20px 24px;
+  }
+  .va-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .va-legend {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--dim);
+    align-items: center;
+  }
+  .va-legend-dot {
+    width: 10px; height: 10px; border-radius: 2px;
+    display: inline-block; margin-right: 5px; vertical-align: middle;
+  }
+  .va-context-note {
+    font-size: 10px; color: #3d4a5c; letter-spacing: 0.03em;
+  }
+
+  /* axis label row */
+  .va-axis-labels {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 4px 0 8px;
+    border-bottom: 1px solid #0d1018;
+    margin-bottom: 4px;
+  }
+  .va-label-spacer { width: 108px; flex-shrink: 0; }
+  .va-label-track {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    position: relative;
+  }
+  .va-label-neg {
+    flex: 1;
+    text-align: right;
+    font-size: 9px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--red);
+    padding-right: 8px;
+  }
+  .va-label-zero {
+    font-size: 9px;
+    color: #4a5568;
+    font-family: 'JetBrains Mono', monospace;
+    width: 2px;
+    text-align: center;
+    position: relative;
+  }
+  .va-label-pos {
+    flex: 1;
+    text-align: left;
+    font-size: 9px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--green);
+    padding-left: 8px;
+  }
+  .va-val-spacer { width: 72px; flex-shrink: 0; }
+
+  /* each greek row */
+  .va-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #0d1018;
+    gap: 0;
+  }
+  .va-row:last-child { border-bottom: none; }
+
+  .va-greek-cell {
+    width: 80px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .va-greek {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: #c8cfd9;
+  }
+  .va-sign-tag {
+    display: inline-block;
+    font-size: 9px;
+    letter-spacing: 0.07em;
+    padding: 1px 5px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .va-sign-tag.neg { background: rgba(239,68,68,0.12); color: var(--red); }
+  .va-sign-tag.pos { background: rgba(34,197,94,0.12); color: var(--green); }
+
+  .va-bars-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .va-entry {
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+  .va-bar-label {
+    font-size: 10px;
+    color: var(--muted);
+    width: 28px;
+    flex-shrink: 0;
+  }
+
+  .va-track {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    height: 12px;
+  }
+  .va-neg-side {
+    flex: 1;
+    height: 8px;
+    display: flex;
+    justify-content: flex-end;
+    background: rgba(255,255,255,0.02);
+    overflow: hidden;
+  }
+  .va-pos-side {
+    flex: 1;
+    height: 8px;
+    display: flex;
+    justify-content: flex-start;
+    background: rgba(255,255,255,0.02);
+    overflow: hidden;
+  }
+  .va-zero-mark {
+    width: 2px;
+    height: 14px;
+    background: #4a5568;
+    flex-shrink: 0;
+    z-index: 2;
+  }
+  .va-bar-seg {
+    height: 100%;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .va-bar-seg.narrow { background: #4a7ab5; }
+  .va-bar-seg.wide   { background: #b8431a; }
+
+  /* value badge */
+  .va-val {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+    width: 72px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .va-val.neg { color: #6a9fd8; }
+  .va-val.pos { color: #4ade80; }
+
+  @media (max-width: 640px) {
+    .va-label-spacer { width: 78px; }
+    .va-bar-label { width: 20px; font-size: 9px; }
+    .va-val { width: 58px; font-size: 9px; }
+    .va-greek-cell { width: 58px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-tag">Options Strategy</div>
+    <h1>BEAR PUT<br><span>SPREAD</span></h1>
+    <a href="#" class="builder-btn" target="_blank">
+      <span class="builder-btn-icon">⬡</span>
+      <span class="builder-btn-text">Відкрити в Position Builder</span>
+      <span class="builder-btn-arrow">↗</span>
+    </a>
+  </div>
+
+  <!-- PAYOFF DIAGRAM -->
+  <div class="payoff-wrap">
+    <h3>P&amp;L Profile — Bear Put Spread (1×1)</h3>
+    <svg class="payoff" viewBox="0 0 700 200" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="profGrad" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#22c55e" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="lossGrad" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#ef4444" stop-opacity="0"/>
+          <stop offset="100%" stop-color="#ef4444" stop-opacity="0.25"/>
+        </linearGradient>
+      </defs>
+      <!-- grid lines -->
+      <line x1="0" y1="100" x2="700" y2="100" stroke="#1e2230" stroke-width="1"/>
+      <line x1="0" y1="40" x2="700" y2="40" stroke="#1e2230" stroke-width="0.5" stroke-dasharray="4,4"/>
+      <line x1="0" y1="125" x2="700" y2="125" stroke="#1e2230" stroke-width="0.5" stroke-dasharray="4,4"/>
+      <!-- vertical dashed lines — drawn first -->
+      <line x1="200" y1="0" x2="200" y2="190" stroke="#ef4444" stroke-width="1.2" stroke-dasharray="3,4" opacity="0.7"/>
+      <line x1="490" y1="0" x2="490" y2="190" stroke="#22c55e" stroke-width="1.2" stroke-dasharray="3,4" opacity="0.7"/>
+      <line x1="393" y1="0" x2="393" y2="190" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3,4" opacity="0.6"/>
+      <!-- Fills -->
+      <polygon points="0,100 0,40 200,40 393,100" fill="url(#profGrad)"/>
+      <polygon points="393,100 490,130 700,130 700,100" fill="url(#lossGrad)" opacity="0.8"/>
+      <!-- P&L line: green flat → green slope to zero → red slope to S1 → red flat -->
+      <polyline points="0,40 200,40" stroke="#22c55e" stroke-width="2.5" fill="none"/>
+      <polyline points="200,40 393,100" stroke="#22c55e" stroke-width="2.5" fill="none"/>
+      <polyline points="393,100 490,130" stroke="#f59e0b" stroke-width="2.5" fill="none"/>
+      <polyline points="490,130 700,130" stroke="#ef4444" stroke-width="2.5" fill="none"/>
+      <!-- Labels -->
+      <text x="88" y="30" fill="#22c55e" font-size="12" font-family="JetBrains Mono" text-anchor="middle">Макс. прибуток</text>
+      <text x="200" y="178" fill="#ef4444" font-size="12" font-family="JetBrains Mono" text-anchor="middle">S2 (продаж)</text>
+      <text x="393" y="88" fill="#f59e0b" font-size="12" font-family="JetBrains Mono" text-anchor="middle">Break Even</text>
+      <text x="490" y="178" fill="#22c55e" font-size="12" font-family="JetBrains Mono" text-anchor="middle">S1 (купівля)</text>
+      <text x="595" y="120" fill="#ef4444" font-size="12" font-family="JetBrains Mono" text-anchor="middle">Дебіт (max loss)</text>
+      <!-- Axis labels -->
+      <text x="4" y="96" fill="#3d4a5c" font-size="9" font-family="JetBrains Mono">0</text>
+      <text x="4" y="36" fill="#3d4a5c" font-size="9" font-family="JetBrains Mono">+P</text>
+      <text x="4" y="148" fill="#3d4a5c" font-size="9" font-family="JetBrains Mono">−P</text>
+    </svg>
+  </div>
+
+  <!-- SECTION 1: STRUCTURE -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">01</div>
+      <div class="section-title">Структура стратегії</div>
+    </div>
+
+    <div class="struct-grid">
+      <div class="leg long">
+        <div class="leg-action">Купівля × 1</div>
+        <div class="leg-desc">Пут S1<br>(вищий страйк)</div>
+        <div class="leg-note">Ближче до ATM / OTM<br>Основна bearish нога</div>
+      </div>
+      <div class="leg short">
+        <div class="leg-action">Продаж × 1</div>
+        <div class="leg-desc">Пут S2<br>(нижній страйк)</div>
+        <div class="leg-note">Глибше OTM<br>Фінансує S1, обмежує прибуток</div>
+      </div>
+      <div class="leg" style="border-left: 3px solid var(--yellow);">
+        <div class="leg-action" style="color: var(--yellow);">Net Result</div>
+        <div class="leg-desc">Net<br>Дебіт</div>
+        <div class="leg-note">Платимо при відкритті. Ризик і прибуток — обидва обмежені</div>
+      </div>
+    </div>
+
+    <div class="info-box" style="margin-bottom:14px;">
+      <strong>💡 Альтернативна назва:</strong> Bear Put Spread також відомий як <strong>Put Debit Spread</strong> або <strong>Put Vertical Spread</strong>. Всі три терміни описують ту саму конструкцію — купівлю пут S1 і продаж пут S2 з меншим страйком. На Deribit і Bybit стратегія зазвичай будується вручну через два окремих ордери.
+    </div>
+
+    <div class="code-block">
+      <span class="cmt">// Базовий приклад: BTC @ 65,000</span><br>
+      <span class="hl">Buy</span>  1× Put S1 = <span class="val">63,000</span>  <span class="cmt">// ~3% OTM, Δ≈0.38, платимо ~$2,400</span><br>
+      <span class="hl">Sell</span> 1× Put S2 = <span class="val">59,000</span>  <span class="cmt">// ~9% OTM, Δ≈0.22, отримуємо ~$1,200</span><br>
+      <span class="cmt">// Net дебіт: ~$1,200 &nbsp;&nbsp;&nbsp;&nbsp;Spread width: $4,000</span><br><br>
+      <span class="cmt">// P&L зони:</span><br>
+      <span class="hl">Нижче S2</span>  → <span class="val">+$2,800</span>  (макс. прибуток = spread − дебіт)<br>
+      <span class="hl">S2 → S1</span>   → змінний P&L (лінійно від макс. до −дебіт)<br>
+      <span class="hl">Break Even</span> = <span class="val">61,800</span>  (S1 − дебіт = 63,000 − 1,200)<br>
+      <span class="hl">Вище S1</span>   → <span class="val">−$1,200</span>  (макс. збиток = дебіт, обидва expire worthless)
+    </div>
+
+    <div class="warn-box">
+      <strong>⚠ Bid/ask та комісії — реальна вартість входу:</strong> Цифри вище — теоретичні mid-price. На практиці при відкритті двох ніг taker-ордерами bid/ask спред може додати <strong>$150–$400</strong> до реального дебіту (залежно від ліквідності і часу доби). При закритті — ще стільки ж. Плюс комісія Deribit ~0.03% від notional per leg. На спреді з теоретичним дебітом $1,200 реальні витрати входу і виходу разом можуть становити до $500 — враховуй це при оцінці risk/reward ще до відкриття позиції.
+    </div>
+
+    <h4>P&L Зони — Швидкий Довідник</h4>
+    <div class="zones">
+      <div class="zone">
+        <div class="zone-price">Нижче S2</div>
+        <div class="zone-result max-profit">+MAX P&L</div>
+        <div class="zone-desc">Обидва пути ITM, spread @ max = width − дебіт</div>
+      </div>
+      <div class="zone">
+        <div class="zone-price">S2 → Break Even</div>
+        <div class="zone-result profit">+Прибуток</div>
+        <div class="zone-desc">S1 ITM, S2 OTM, P&L зменшується до нуля</div>
+      </div>
+      <div class="zone">
+        <div class="zone-price">BE → S1</div>
+        <div class="zone-result loss">−Збиток</div>
+        <div class="zone-desc">P&L від нуля до −дебіт</div>
+      </div>
+      <div class="zone">
+        <div class="zone-price">Вище S1</div>
+        <div class="zone-result max-loss">−Дебіт (MAX)</div>
+        <div class="zone-desc">Обидва OTM, втрачаємо лише дебіт — <em>обмежений збиток</em></div>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>✅ Ключова перевага:</strong> На відміну від Put Spread Ratio або голого пута — тут ризик <strong>строго обмежений</strong>. Максимально можна втратити тільки сплачений дебіт. Немає unbounded loss. Це робить стратегію придатною навіть без хеджування, але потребує правильного вибору timing і IV-середовища.
+    </div>
+  </div>
+
+  <!-- SECTION 2: ENTRY CONDITIONS -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">02</div>
+      <div class="section-title">Умови входу</div>
+    </div>
+
+    <p style="color: var(--dim); margin-bottom: 20px; font-size: 12.5px;">Bear Put Spread — це <strong style="color: #c8cfd9;">bearish directional</strong> стратегія з <strong style="color:#c8cfd9">net negative delta</strong> при відкритті. Vega: positive (long vega — хочемо щоб IV зростала або залишалась стабільною). Theta: negative — час працює проти нас.</p>
+
+    <table class="cond-table">
+      <thead>
+        <tr>
+          <th>Фактор</th>
+          <th>Ідеальний контекст</th>
+          <th>Сигнал</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong style="color:#c8cfd9;">Напрямок</strong></td>
+          <td>Чіткий bearish bias з конкретним каталізатором — технічний пробій, macro подія, перегрів ринку</td>
+          <td><span class="tag red">Bearish</span></td>
+        </tr>
+        <tr>
+          <td><strong style="color:#c8cfd9;">IV Rank / IV Percentile</strong></td>
+          <td>IV відносно низька для поточного ринку (IVR &lt; 40%). Купуємо пути дешевше ніж в моменти паніки — менший дебіт, краще risk/reward. Важливо: на BTC "low IVR" може відповідати абсолютній IV 45–60%, що все одно дорого в абсолютних цифрах — орієнтуйся саме на IVR відносно недавньої історії, а не на абсолютний рівень</td>
+          <td><span class="tag green">Low IV</span></td>
+        </tr>
+        <tr>
+          <td><strong style="color:#c8cfd9;">IV очікування</strong></td>
+          <td>Очікуємо, що IV залишиться стабільною або зросте (bearish рух часто супроводжується IV spike). Наша net-long vega позиція виграє від цього</td>
+          <td><span class="tag blue">IV Stable / Up</span></td>
+        </tr>
+        <tr>
+          <td><strong style="color:#c8cfd9;">Term Structure</strong></td>
+          <td>Flat або backwardation — при flat структурі roll out коштує нейтрально. В backwardation IV наступного expiry нижча — вихідний дебіт при roll менший. Contango (IV довших дат вища) робить roll out дорожчим: доведеться платити більший дебіт за той самий спред на наступний місяць</td>
+          <td><span class="tag yellow">Flat / Backwardation</span></td>
+        </tr>
+        <tr>
+          <td><strong style="color:#c8cfd9;">Каталізатор</strong></td>
+          <td>Є конкретний тригер: технічний рівень опору, розворотна формація, macro новина. Без каталізатора дебіт-стратегія — поганий вибір: theta decay без руху знищить позицію</td>
+          <td><span class="tag orange">Event / Technical</span></td>
+        </tr>
+        <tr>
+          <td><strong style="color:#c8cfd9;">Skew</strong></td>
+          <td>BTC стабільно має негативний put skew (25-delta risk reversal зазвичай −3 до −8 vol points) — пути завжди дорожчі за коли. Питання не "є skew чи ні", а наскільки він завищений відносно свого недавнього діапазону. При аномально великому downside skew дебіт стає невиправдано дорогим — краще почекати нормалізації</td>
+          <td><span class="tag purple">Moderate Skew</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>Bear Put Spread vs Long Put — коли що вибрати</h4>
+
+    <div class="card-grid" style="margin-bottom:16px;">
+      <div class="card">
+        <div class="card-icon">📉</div>
+        <div class="card-title">Long Put (без хеджу)</div>
+        <p>Вищий дебіт. Необмежений прибуток вниз. Краще при IV spike сценарії або при очікуванні дуже великого руху (&gt;20%). Але дорожче і theta decay б'є сильніше.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚖️</div>
+        <div class="card-title">Bear Put Spread (цей гід)</div>
+        <p>Менший дебіт завдяки проданому S2. Обмежений максимальний прибуток. Краще risk/reward у більшості ситуацій. Оптимальний вибір при очікуванні руху на 5–15%.</p>
+      </div>
+    </div>
+
+    <div class="warn-box">
+      <strong>⚠ Theta — головний ворог:</strong> При відкритті за дебіт кожен день без руху ціни — це витрата. Якщо немає каталізатора або рух затримується — позиція повільно знецінюється. На відміну від net-credit стратегій, тут час <em>проти</em> нас.
+    </div>
+  </div>
+
+  <!-- SECTION 3: STRIKE CONSTRUCTION -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">03</div>
+      <div class="section-title">Формування: страйки та їхній вплив</div>
+    </div>
+
+    <p style="color: var(--dim); font-size: 12.5px; margin-bottom: 20px;">Вибір страйків визначає вартість дебіту, потенційний прибуток, break even і те, який рух ціни потрібен для профіту.</p>
+
+    <div class="info-box" style="margin-bottom:16px;">
+      <strong>💡 Як читати delta страйків:</strong> Delta put-опціону показує ймовірність ITM на expiry. Зручніша за % OTM бо враховує поточну волатильність.<br>
+      <strong>Δ0.50</strong> = ATM &nbsp;·&nbsp; <strong>Δ0.40</strong> ≈ 2–3% OTM &nbsp;·&nbsp; <strong>Δ0.35</strong> ≈ 4–5% OTM &nbsp;·&nbsp; <strong>Δ0.25</strong> ≈ 7–9% OTM &nbsp;·&nbsp; <strong>Δ0.15</strong> ≈ 11–13% OTM &nbsp;·&nbsp; <em style="color:var(--muted);font-size:10px;">при IV BTC ~50–60%, DTE ~21</em>
+    </div>
+
+    <h4>Варіанти конструкції</h4>
+
+    <!-- Tight Spread -->
+    <div class="strike-var">
+      <div>
+        <div class="sv-label">Tight Spread</div>
+        <div><span class="tag green">Conservative</span></div>
+      </div>
+      <div class="sv-body">
+        <strong>S1: Δ0.35 · S2: Δ0.25 (вузький gap)</strong><br>
+        Менший дебіт, менший потенційний прибуток. Break even відносно близько до ціни входу. Ідеальний для ситуацій з помірним bearish очікуванням на 5–10%. Простіше управляти.
+      </div>
+      <div><span class="tag yellow">Low Cost</span></div>
+      <div class="strike-strip">
+        <svg viewBox="0 0 600 62" style="width:100%;display:block;height:52px;">
+          <line x1="40" y1="32" x2="560" y2="32" stroke="#1e2230" stroke-width="1.5"/>
+          <line x1="321" y1="32" x2="435" y2="32" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <!-- S2 dot: Δ0.25 ≈ 11.5% OTM → x ≈ 321 -->
+          <circle cx="321" cy="32" r="5" fill="#ef4444"/>
+          <text x="321" y="19" fill="#ef4444" font-size="11" font-family="JetBrains Mono" text-anchor="middle">S2</text>
+          <text x="321" y="50" fill="#ef4444" font-size="11" font-family="JetBrains Mono" text-anchor="middle" opacity="0.75">Δ0.25</text>
+          <!-- S1 dot: Δ0.35 ≈ 6% OTM → x ≈ 435 -->
+          <circle cx="435" cy="32" r="5" fill="#22c55e"/>
+          <text x="435" y="19" fill="#22c55e" font-size="11" font-family="JetBrains Mono" text-anchor="middle">S1</text>
+          <text x="435" y="50" fill="#22c55e" font-size="11" font-family="JetBrains Mono" text-anchor="middle" opacity="0.75">Δ0.35</text>
+          <!-- Price marker -->
+          <polygon points="560,25 555,16 565,16" fill="#f0724a"/>
+          <text x="560" y="50" fill="#f0724a" font-size="11" font-family="JetBrains Mono" text-anchor="middle">Ціна</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Wide Spread -->
+    <div class="strike-var">
+      <div>
+        <div class="sv-label">Wide Spread</div>
+        <div><span class="tag orange">Aggressive</span></div>
+      </div>
+      <div class="sv-body">
+        <strong>S1: Δ0.35 · S2: Δ0.15 (широкий gap)</strong><br>
+        Більший дебіт, але і значно вищий потенційний прибуток. Break even далі від поточної ціни. Потребує сильнішого руху для максимального прибутку (~11–13%). Підходить при очікуванні глибокої корекції.
+      </div>
+      <div><span class="tag red">High Reward</span></div>
+      <div class="strike-strip">
+        <svg viewBox="0 0 600 62" style="width:100%;display:block;height:52px;">
+          <line x1="40" y1="32" x2="560" y2="32" stroke="#1e2230" stroke-width="1.5"/>
+          <line x1="154" y1="32" x2="435" y2="32" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <!-- S2 dot: Δ0.15 ≈ 19.5% OTM → x ≈ 154 -->
+          <circle cx="154" cy="32" r="5" fill="#ef4444"/>
+          <text x="154" y="19" fill="#ef4444" font-size="11" font-family="JetBrains Mono" text-anchor="middle">S2</text>
+          <text x="154" y="50" fill="#ef4444" font-size="11" font-family="JetBrains Mono" text-anchor="middle" opacity="0.75">Δ0.15</text>
+          <!-- S1 dot: Δ0.35 → x ≈ 435 -->
+          <circle cx="435" cy="32" r="5" fill="#22c55e"/>
+          <text x="435" y="19" fill="#22c55e" font-size="11" font-family="JetBrains Mono" text-anchor="middle">S1</text>
+          <text x="435" y="50" fill="#22c55e" font-size="11" font-family="JetBrains Mono" text-anchor="middle" opacity="0.75">Δ0.35</text>
+          <!-- Price marker -->
+          <polygon points="560,25 555,16 565,16" fill="#f0724a"/>
+          <text x="560" y="50" fill="#f0724a" font-size="11" font-family="JetBrains Mono" text-anchor="middle">Ціна</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- S1 ATM -->
+    <div class="strike-var">
+      <div>
+        <div class="sv-label">S1 ATM</div>
+        <div><span class="tag blue">Directional</span></div>
+      </div>
+      <div class="sv-body">
+        <strong>S1: Δ0.50 · S2: Δ0.20–0.25</strong><br>
+        Максимальне directional exposure. ATM пут — найвища delta і найвища вартість. Дебіт великий, але break even практично на рівні поточної ціни. Виправданий при дуже сильному bearish переконанні або "рекомбінації" після великого bull-руху.
+      </div>
+      <div><span class="tag purple">Delta-heavy</span></div>
+      <div class="strike-strip">
+        <svg viewBox="0 0 600 62" style="width:100%;display:block;height:52px;">
+          <line x1="40" y1="32" x2="560" y2="32" stroke="#1e2230" stroke-width="1.5"/>
+          <line x1="269" y1="32" x2="560" y2="32" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <!-- S2 dot -->
+          <circle cx="269" cy="32" r="5" fill="#ef4444"/>
+          <text x="269" y="19" fill="#ef4444" font-size="11" font-family="JetBrains Mono" text-anchor="middle">S2</text>
+          <text x="269" y="50" fill="#ef4444" font-size="11" font-family="JetBrains Mono" text-anchor="middle" opacity="0.75">Δ0.20–0.25</text>
+          <!-- S1 dot + price triangle stacked -->
+          <circle cx="560" cy="32" r="5" fill="#22c55e"/>
+          <polygon points="560,25 555,16 565,16" fill="#f0724a"/>
+          <text x="569" y="36" fill="#22c55e" font-size="11" font-family="JetBrains Mono" text-anchor="start">S1  ATM  Δ0.50</text>
+          <text x="560" y="50" fill="#f0724a" font-size="11" font-family="JetBrains Mono" text-anchor="middle">Ціна</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Deep OTM -->
+    <div class="strike-var">
+      <div>
+        <div class="sv-label">Deep OTM</div>
+        <div><span class="tag green">Lottery</span></div>
+      </div>
+      <div class="sv-body">
+        <strong>S1: Δ0.25 · S2: Δ0.12 (обидва глибоко)</strong><br>
+        Дуже дешевий дебіт, але потрібен великий рух (&gt;15%) для прибутку. Низька ймовірність успіху. Підходить як "хвостовий хедж" або якщо є переконання в різкому обвалі. Ліквідність S2 при Δ0.12 на Deribit — вже на межі: bid/ask може бути широким.
+      </div>
+      <div><span class="tag yellow">Tail Risk</span></div>
+      <div class="strike-strip">
+        <svg viewBox="0 0 600 62" style="width:100%;display:block;height:52px;">
+          <line x1="40" y1="32" x2="560" y2="32" stroke="#1e2230" stroke-width="1.5"/>
+          <line x1="60" y1="32" x2="321" y2="32" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <!-- S2 dot: Δ0.12 ≈ 25% OTM → x ≈ 40–60 (edge) -->
+          <circle cx="60" cy="32" r="5" fill="#ef4444"/>
+          <text x="60" y="19" fill="#ef4444" font-size="11" font-family="JetBrains Mono" text-anchor="middle">S2</text>
+          <text x="60" y="50" fill="#ef4444" font-size="11" font-family="JetBrains Mono" text-anchor="middle" opacity="0.75">Δ0.12</text>
+          <!-- S1 dot: Δ0.25 ≈ 11.5% OTM → x ≈ 321 -->
+          <circle cx="321" cy="32" r="5" fill="#22c55e"/>
+          <text x="321" y="19" fill="#22c55e" font-size="11" font-family="JetBrains Mono" text-anchor="middle">S1</text>
+          <text x="321" y="50" fill="#22c55e" font-size="11" font-family="JetBrains Mono" text-anchor="middle" opacity="0.75">Δ0.25</text>
+          <!-- Price marker -->
+          <polygon points="560,25 555,16 565,16" fill="#f0724a"/>
+          <text x="560" y="50" fill="#f0724a" font-size="11" font-family="JetBrains Mono" text-anchor="middle">Ціна</text>
+        </svg>
+      </div>
+    </div>
+
+    <h4>Як ширина spread-у впливає на Greeks</h4>
+
+    <div class="va-wrap">
+      <div class="va-header">
+        <div class="va-legend">
+          <span><span class="va-legend-dot" style="background:#4a7ab5"></span>Вузький (S1: Δ0.35 / S2: Δ0.25)</span>
+          <span><span class="va-legend-dot" style="background:#b8431a"></span>Широкий (S1: Δ0.35 / S2: Δ0.15)</span>
+        </div>
+        <span class="va-context-note">* BTC @ 65k · 1 BTC · ~20 DTE · net-debit</span>
+      </div>
+
+      <div class="va-axis-labels">
+        <div class="va-label-spacer"></div>
+        <div class="va-label-track">
+          <div class="va-label-neg">← SHORT / НЕГАТИВ</div>
+          <div class="va-label-zero">0</div>
+          <div class="va-label-pos">ПОЗИТИВ / LONG →</div>
+        </div>
+        <div class="va-val-spacer"></div>
+      </div>
+
+      <!-- DELTA -->
+      <div class="va-row">
+        <div class="va-greek-cell">
+          <div class="va-greek">Delta</div>
+          <span class="va-sign-tag neg">− net short</span>
+        </div>
+        <div class="va-bars-col">
+          <div class="va-entry">
+            <span class="va-bar-label">Вузький</span>
+            <div class="va-track">
+              <div class="va-neg-side"><div class="va-bar-seg narrow" style="width:38%"></div></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"></div>
+            </div>
+            <span class="va-val neg">−0.10 Δ</span>
+          </div>
+          <div class="va-entry">
+            <span class="va-bar-label">Широкий</span>
+            <div class="va-track">
+              <div class="va-neg-side"><div class="va-bar-seg wide" style="width:75%"></div></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"></div>
+            </div>
+            <span class="va-val neg">−0.20 Δ</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- VEGA -->
+      <div class="va-row">
+        <div class="va-greek-cell">
+          <div class="va-greek">Vega</div>
+          <span class="va-sign-tag pos">+ net long</span>
+        </div>
+        <div class="va-bars-col">
+          <div class="va-entry">
+            <span class="va-bar-label">Вузький</span>
+            <div class="va-track">
+              <div class="va-neg-side"></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"><div class="va-bar-seg narrow" style="width:35%"></div></div>
+            </div>
+            <span class="va-val pos">+$8/1%IV</span>
+          </div>
+          <div class="va-entry">
+            <span class="va-bar-label">Широкий</span>
+            <div class="va-track">
+              <div class="va-neg-side"></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"><div class="va-bar-seg wide" style="width:75%"></div></div>
+            </div>
+            <span class="va-val pos">+$17/1%IV</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- THETA -->
+      <div class="va-row">
+        <div class="va-greek-cell">
+          <div class="va-greek">Theta</div>
+          <span class="va-sign-tag neg">− net short</span>
+        </div>
+        <div class="va-bars-col">
+          <div class="va-entry">
+            <span class="va-bar-label">Вузький</span>
+            <div class="va-track">
+              <div class="va-neg-side"><div class="va-bar-seg narrow" style="width:30%"></div></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"></div>
+            </div>
+            <span class="va-val neg">−$13/день</span>
+          </div>
+          <div class="va-entry">
+            <span class="va-bar-label">Широкий</span>
+            <div class="va-track">
+              <div class="va-neg-side"><div class="va-bar-seg wide" style="width:75%"></div></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"></div>
+            </div>
+            <span class="va-val neg">−$33/день</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- GAMMA -->
+      <div class="va-row">
+        <div class="va-greek-cell">
+          <div class="va-greek">Gamma</div>
+          <span class="va-sign-tag pos">+ net long</span>
+        </div>
+        <div class="va-bars-col">
+          <div class="va-entry">
+            <span class="va-bar-label">Вузький</span>
+            <div class="va-track">
+              <div class="va-neg-side"></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"><div class="va-bar-seg narrow" style="width:33%"></div></div>
+            </div>
+            <span class="va-val pos">+0.000006 Γ</span>
+          </div>
+          <div class="va-entry">
+            <span class="va-bar-label">Широкий</span>
+            <div class="va-track">
+              <div class="va-neg-side"></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"><div class="va-bar-seg wide" style="width:75%"></div></div>
+            </div>
+            <span class="va-val pos">+0.000016 Γ</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAX PROFIT ZONE -->
+      <div class="va-row">
+        <div class="va-greek-cell">
+          <div class="va-greek">Max P&L</div>
+          <span class="va-sign-tag pos">+ зона</span>
+        </div>
+        <div class="va-bars-col">
+          <div class="va-entry">
+            <span class="va-bar-label">Вузький</span>
+            <div class="va-track">
+              <div class="va-neg-side"></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"><div class="va-bar-seg narrow" style="width:37%"></div></div>
+            </div>
+            <span class="va-val pos">~6% руху</span>
+          </div>
+          <div class="va-entry">
+            <span class="va-bar-label">Широкий</span>
+            <div class="va-track">
+              <div class="va-neg-side"></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"><div class="va-bar-seg wide" style="width:75%"></div></div>
+            </div>
+            <span class="va-val pos">~11% руху</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SECTION 4: MANAGEMENT -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">04</div>
+      <div class="section-title">Менеджмент під час позиції</div>
+    </div>
+
+    <div class="card-grid" style="margin-bottom: 24px;">
+      <div class="card">
+        <div class="card-icon">⏳</div>
+        <div class="card-title">Theta — головна загроза</div>
+        <p>Theta від'ємна: кожен день без руху — це пряма витрата. Якщо проходить 30–40% часу до expiry, а ціна не рухнулась у потрібному напрямку — переоцінюй thesis. Чекати до expiry в надії на рух — дорого коштує.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📈</div>
+        <div class="card-title">Vega — твій союзник</div>
+        <p>Net-long vega: якщо BTC падає різко (crash-type move) і IV spike відбувається одночасно, vega посилює прибуток від delta — це "double hit". Але при повільному падінні ("staircase down") IV може залишатись стабільною або навіть знижуватись: ринок "звикає" до темпу корекції. У такому сценарії вега не допомагає — розраховуй переважно на delta прибуток.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🎯</div>
+        <div class="card-title">Рух в зону — ранній вихід</div>
+        <p>Якщо ціна швидко досягла зони між S2 і break even — розглянь ранній вихід. Не чекай максимуму якщо 60–70% прибутку вже є в руках. Лишок theta decay і ризик відновлення ціни не варті очікування.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌡</div>
+        <div class="card-title">IV після каталізатора</div>
+        <p>Якщо відкривався перед подією і вона вже пройшла — навіть якщо рух відбувся, IV може різко впасти (IV crush). Vega loss при IV crush частково нейтралізує delta profit. Закривай одразу після реалізації руху, не тримай через IV crush.</p>
+      </div>
+    </div>
+
+    <h4>Сценарії під час позиції</h4>
+    <div class="scenario-row">
+      <div class="scenario bear">
+        <div class="sc-label">Bearish Move ✓</div>
+        <svg viewBox="0 0 100 50" height="44" style="display:block;width:100%;margin-bottom:8px;">
+          <defs>
+            <marker id="arrowG2" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#22c55e"/>
+            </marker>
+          </defs>
+          <polyline points="10,8 20,22 28,12 40,28 48,18 60,34 68,24 77,41"
+            stroke="#22c55e" stroke-width="2" fill="none" stroke-linecap="butt" stroke-linejoin="miter"
+            marker-end="url(#arrowG2)"/>
+        </svg>
+        <div class="sc-title">Ціна падає — план спрацьовує</div>
+        <div class="sc-body">Delta + vega генерують прибуток. Якщо ціна досягла S2 — це max profit. Закривай на 70–80% від макс. або тримай якщо є momentum.</div>
+      </div>
+      <div class="scenario flat">
+        <div class="sc-label">Sideways — тягне вниз</div>
+        <svg viewBox="0 0 100 50" height="44" style="display:block;width:100%;margin-bottom:8px;">
+          <defs>
+            <marker id="arrowY2" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#f59e0b"/>
+            </marker>
+          </defs>
+          <polyline points="8,14 22,36 36,14 50,36 64,14 79,36"
+            stroke="#f59e0b" stroke-width="2" fill="none" stroke-linecap="butt" stroke-linejoin="miter"
+            marker-end="url(#arrowY2)"/>
+        </svg>
+        <div class="sc-title">Ціна стоїть — небезпечно</div>
+        <div class="sc-body">Theta decay руйнує позицію. Оціни: якщо каталізатор ще живий — тримай. Якщо ні — закривай з невеликим збитком, не давай theta добити позицію до нуля.</div>
+      </div>
+      <div class="scenario bull">
+        <div class="sc-label">Bullish Move — збиток</div>
+        <svg viewBox="0 0 100 50" height="44" style="display:block;width:100%;margin-bottom:8px;">
+          <defs>
+            <marker id="arrowR2" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#ef4444"/>
+            </marker>
+          </defs>
+          <polyline points="10,44 20,32 28,38 38,24 46,30 56,16 64,22 73,9"
+            stroke="#ef4444" stroke-width="2" fill="none" stroke-linecap="butt" stroke-linejoin="miter"
+            marker-end="url(#arrowR2)"/>
+        </svg>
+        <div class="sc-title">Ціна пішла вгору</div>
+        <div class="sc-body">Thesis зламаний. Збиток обмежений дебітом — не панікуй, але й не тримай. Реалізуй збиток і закрий, поки дебіт ще не вичерпаний повністю theta.</div>
+      </div>
+    </div>
+
+    <div class="timeline">
+      <div class="tl-item safe">
+        <div class="tl-label">Відкриття — є запас часу</div>
+        <div class="tl-text">Theta decay на мінімумі, gamma не критична. Це найкраща фаза для позиції: ринок ще не "з'їв" premium. Тригерний рух ціни ще попереду.</div>
+      </div>
+      <div class="tl-item safe">
+        <div class="tl-label">Середина — оцінка прогресу</div>
+        <div class="tl-text">Якщо є 40–50% прибутку — можна закрити. Якщо ціна ще вище S1 і theta вже з'їла частину дебіту — переосмисли thesis. Не чекай "а раптом рухнеться".</div>
+      </div>
+      <div class="tl-item warn">
+        <div class="tl-label">Пізня фаза — прискорення розпаду</div>
+        <div class="tl-text">Theta decay різко зростає в останній третині позиції. Якщо ціна не рухнулась — збиток наближається до максимального. Рішення треба приймати швидко.</div>
+      </div>
+      <div class="tl-item danger">
+        <div class="tl-label">Останні дні — gamma peak, висока ціна чекання</div>
+        <div class="tl-text">Gamma висока — різкий рух дає і великий прибуток і великий збиток. Якщо ціна між страйками — P&L нестабільний. Не залишай відкриту позицію на expiry без уваги.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 5: ROLLING -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">05</div>
+      <div class="section-title">Rolling та адаптація позиції</div>
+    </div>
+
+    <p style="color: var(--dim); font-size: 12.5px; margin-bottom: 20px;">Для дебіт-спреду rolling — це передусім управління часом і ціновим рівнем. Кожен roll коштує додаткового дебіту, тому рішення про roll треба виважувати відносно якості збереженого thesis.</p>
+
+    <div class="rule">
+      <div class="rule-num">R1</div>
+      <div class="rule-body">
+        <strong>Roll Out — перенести в часі</strong>
+        Якщо bearish thesis ще актуальний, але час закінчується без руху — закрити поточну структуру і відкрити ту саму на наступний expiry. Платимо додатковий дебіт, але отримуємо більше часу для реалізації руху. <em>Виправданий тільки якщо каталізатор ще живий і не реалізований.</em>
+      </div>
+    </div>
+
+    <div class="rule">
+      <div class="rule-num">R2</div>
+      <div class="rule-body">
+        <strong>Roll Down — слідувати за ціною</strong>
+        Якщо ціна зробила частковий bearish рух і вже між страйками, але є підстави очікувати продовження — закрити і перевідкрити spread нижче (новий S1 ближче до поточної ціни). Фіксуємо частину прибутку, отримуємо нову bearish структуру. <em>Добре спрацьовує при трендовому руху вниз.</em>
+      </div>
+    </div>
+
+    <div class="rule">
+      <div class="rule-num">R3</div>
+      <div class="rule-body">
+        <strong>Конвертація в Long Put</strong>
+        Якщо переконаність у сильному обвалі різко зросла (нова macro новина, пробій ключового рівня) — викупити шорт S2. Позиція стає звичайним Long Put з необмеженим прибутком вниз. Платимо за S2 який вже дешевший якщо ціна впала. <em>Прийнятний варіант при різкій зміні thesis із помірного на агресивний bearish.</em>
+      </div>
+    </div>
+
+    <div class="rule">
+      <div class="rule-num">R4</div>
+      <div class="rule-body">
+        <strong>Widen — розширити spread</strong>
+        Якщо IV різко виросла після відкриття — викупи поточний шорт S2 (він подорожчав через вищу IV) і продай новий S2 з нижнім страйком, зібравши за нього більшу премію ніж при первісному відкритті. Платимо додатковий нетто-дебіт на buyback, але отримуємо ширший спред і більший потенційний прибуток. Break even стає далі від поточної ціни. <em>Доречно при різкому зростанні IV, коли глибші OTM страйки стали суттєво дорожчими і дозволяють зібрати значну премію.</em>
+      </div>
+    </div>
+
+    <div class="warn-box">
+      <strong>⚠ Правило rolling для дебіт-стратегій:</strong> Кожен roll — це новий дебіт. Якщо ти вже роллив позицію двічі і thesis не реалізувався, загальний сплачений дебіт стає великим відносно потенційного прибутку. Встанови максимальний сумарний дебіт заздалегідь і не перевищуй його.
+    </div>
+  </div>
+
+  <!-- SECTION 6: EXPIRY CHOICE -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">06</div>
+      <div class="section-title">Вибір expiry</div>
+    </div>
+
+    <p style="color: var(--dim); font-size: 12.5px; margin-bottom: 20px;">Для дебіт-спреду вибір expiry — одне з найважливіших рішень. Занадто короткий expiry → висока гамма, мало часу, дешевий дебіт, але рух має бути негайним. Занадто довгий → більший час, але виплачуєш більше theta і дебіт дорожчає.</p>
+
+    <div class="hedge-item">
+      <div class="hedge-toggle">
+        <div class="hi-left">
+          <span class="tag yellow">Короткий</span>
+          <div>
+            <div class="hi-name">7–14 днів до expiry</div>
+            <div class="hi-brief">Дешево, але рух потрібен негайно</div>
+          </div>
+        </div>
+        <span class="hi-arrow">▼</span>
+      </div>
+      <div class="hi-body">
+        Дебіт мінімальний — S2 premium майже нульовий, але і S1 відносно дешевший. Gamma дуже висока: якщо рух стається — прибуток реалізується швидко. Але theta decay катастрофічний — без руху протягом 3–5 днів позиція вже в суттєвому збитку. <strong>Додатковий ризик:</strong> при 7–14 DTE вихідні займають 14–28% від залишкового часу. У суботу-неділю bid/ask на Deribit розширюється в 1.5–3×, а BTC може зробити gap move на −5–10% без можливості ефективно закрити позицію. Відкривай такий спред у вівторок-середу — не в п'ятницю. <strong>Використовувати:</strong> лише при наявності конкретного каталізатора на горизонті 1–3 дні (технічний рівень, очікувана новина). Не для "а раптом".
+      </div>
+    </div>
+
+    <div class="hedge-item">
+      <div class="hedge-toggle">
+        <div class="hi-left">
+          <span class="tag green">Стандартний</span>
+          <div>
+            <div class="hi-name">21–28 днів до expiry</div>
+            <div class="hi-brief">Оптимальний баланс для більшості ситуацій</div>
+          </div>
+        </div>
+        <span class="hi-arrow">▼</span>
+      </div>
+      <div class="hi-body">
+        Найбільш поширений вибір для тактичного bear put spread. Достатньо часу щоб рух відбувся, але theta ще не критична на початку. Gamma не надмірна — P&L відносно передбачуваний. <strong>Вихід:</strong> якщо 50–70% прибутку отримано — закривай рано, не чекай expiry. Тримати до expiry виправданий лише якщо ціна вже нижче S2.
+      </div>
+    </div>
+
+    <div class="hedge-item">
+      <div class="hedge-toggle">
+        <div class="hi-left">
+          <span class="tag blue">Середній</span>
+          <div>
+            <div class="hi-name">45–60 днів до expiry</div>
+            <div class="hi-brief">Більше часу, менше gamma, дорожче</div>
+          </div>
+        </div>
+        <span class="hi-arrow">▼</span>
+      </div>
+      <div class="hi-body">
+        Дебіт вищий — S1 premium дорожчий для довшого expiry (навіть якщо S2 offset також більший). Зате theta decay нижчий в денному вираженні на старті, і є більше часу для реалізації руху. Gamma ризик мінімальний. <strong>Підходить:</strong> при macro-рівневому bearish thesis без конкретної дати ("ринок переоцінений, Q2 буде важким"). Але на крипто 60 DTE — це вічність: у мого thesis є термін придатності?
+      </div>
+    </div>
+
+    <div class="hedge-item">
+      <div class="hedge-toggle">
+        <div class="hi-left">
+          <span class="tag purple">Подійний</span>
+          <div>
+            <div class="hi-name">Event-driven expiry</div>
+            <div class="hi-brief">Відкрити до каталізатора, закрити після</div>
+          </div>
+        </div>
+        <span class="hi-arrow">▼</span>
+      </div>
+      <div class="hi-body">
+        Вибрати expiry через 5–10 днів після очікуваного каталізатора (FOMC, CPI, on-chain unlock, великий expiry). <strong>Логіка:</strong> до події IV зростає — дорожче відкривати. Але після події відбувається або рух (delta profit) або IV crush (вега loss). Краще відкривати за 3–5 днів до події — IV ще не на піку, є запас. <strong>Ризик:</strong> якщо подія виявляється нейтральною і ціна не рухнулась — IV crush б'є по net-long vega навіть при нейтральній ціні. Враховуй це при виборі розміру.
+      </div>
+    </div>
+
+    <div class="hedge-item">
+      <div class="hedge-toggle">
+        <div class="hi-left">
+          <span class="tag orange">Довгий</span>
+          <div>
+            <div class="hi-name">90+ днів (LEAPS-like)</div>
+            <div class="hi-brief">Квазі-позиційний bearish trade</div>
+          </div>
+        </div>
+        <span class="hi-arrow">▼</span>
+      </div>
+      <div class="hi-body">
+        Дуже довгий expiry перетворює spread на позиційний trade — майже як spot short але з обмеженим ризиком. Theta decay мінімальний відносно premium. <strong>Але:</strong> значний дебіт заморожується на довгий час, ліквідність таких страйків на Deribit/Bybit обмежена, bid/ask широкий. Не рекомендується для більшості крипто-трейдерів — занадто довга капіталізація при поганій ліквідності.
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>💡 Правило вибору expiry:</strong> Обери expiry так, щоб каталізатор мав реалістично реалізуватись у межах половини часу до expiry. Якщо до expiry 21 день, рух повинен статися до ~10-го дня — решта часу буфер для ранньої фіксації прибутку. Крипто рухається швидко: якщо рух не стався за перші 50% часу — thesis під питанням. <strong>Практична деталь по днях:</strong> незалежно від обраного expiry — уникай відкривати нові позиції у п'ятницю після обіду. Вихідні на BTC несуть gap risk при значно ширших bid/ask спредах і нижчій ліквідності.
+    </div>
+  </div>
+
+  <!-- SECTION 7: CLOSING -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">07</div>
+      <div class="section-title">Коли закривати</div>
+    </div>
+
+    <h4>Закриття з прибутком</h4>
+
+    <div class="close-rule green">
+      <strong>50–75% від максимального прибутку — стандартний вихід</strong>
+      Як тільки позиція принесла 50–75% від теоретичного max P&L — закрити і зафіксувати. Залишатись відкритим далі означає ризикувати всім прибутком заради останніх 25% при зростаючій gamma і theta. Статистично невигідно.
+    </div>
+
+    <div class="close-rule green">
+      <strong>Різкий bearish рух + IV spike — подвійна перевага</strong>
+      Якщо ціна впала і IV різко зросла одночасно (паніка на ринку) — delta profit посилений vega profit. Це найкращий сценарій: закривай раніше 50%, не жди максимуму. IV може так само різко впасти назад.
+    </div>
+
+    <div class="close-rule green">
+      <strong>Ціна досягла S2 або нижче</strong>
+      Якщо ціна вже нижче S2 — spread повністю в max profit зоні. Тримати далі не несе додаткового прибутку (обидва пути ITM, позиція на плато). Розглянь закриття — або тримай якщо сильний тренд і ти хочеш конвертувати в long put (R3 з розділу 05).
+    </div>
+
+    <h4>Захисне закриття та стоп-лоси</h4>
+
+    <div class="close-rule yellow">
+      <strong>Theta з'їла 40% дебіту без руху ціни</strong>
+      Якщо позиція відкрита, ціна не рухнулась у потрібному напрямку, а theta вже вкусила 40% від сплаченого дебіту — серйозно розглянь закриття. Залишок не варто тримати без каталізатора: theta прискорюється.
+    </div>
+
+    <div class="close-rule yellow">
+      <strong>IV різко впала після події (IV crush)</strong>
+      Якщо відкривав перед подією і після неї IV впала на 15%+, але ціна практично не рухнулась — vega loss перевищує theta gain. Позиція в збитку навіть при нейтральній ціні. Краще закрити і переоцінити.
+    </div>
+
+    <div class="close-rule red">
+      <strong>Збиток досягнув 60–70% від сплаченого дебіту</strong>
+      Якщо дебіт = $1,200 і збиток вже $720–840 — закрити без обговорень. Тримати заради "відновлення" при нейтральній або bullish ціні — ірраціонально. Theta не дасть позиції відновитись без різкого руху.
+    </div>
+
+    <div class="close-rule red">
+      <strong>Bearish thesis зламаний — ціна пробила опір вгору</strong>
+      Якщо ціна зробила сильний bull-рух і закрилась вище ключового технічного рівня, який був базою bearish thesis — закрити позицію негайно. Не "дочекуватись повернення". Макс. збиток = дебіт, і краще зафіксувати його раніше ніж пізніше.
+    </div>
+
+    <div class="close-rule blue">
+      <strong>Зміна macro середовища або несподівана бичача новина</strong>
+      ETF approval, регуляторний позитив, великий institutional purchase — все що різко міняє сентимент на bullish. Навіть при збитку 20–30% краще закрити і переоцінити ніж чекати повернення ціни вниз.
+    </div>
+
+    <div class="info-box">
+      <strong>💡 Загальний принцип Bear Put Spread:</strong> Це <strong>directional bet</strong> з визначеним часовим горизонтом. Перевагою є обмежений і відомий ризик — ніколи не втратиш більше дебіту. Але "тримати і чекати" без активного каталізатора — дорого. Кожен день без руху — це реальні гроші. Менеджмент для цієї стратегії означає: закрити вчасно з прибутком, не дати theta знищити позицію, і мати чіткий стоп-лос на рівні дебіту.
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    BEAR PUT SPREAD GUIDE · by Grind
+  </div>
+
+</div>
+<script>
+  document.querySelectorAll('.hedge-toggle').forEach(function(t) {
+    t.addEventListener('click', function() {
+      t.closest('.hedge-item').classList.toggle('open');
+    });
+  });
+</script>
+</body>
+</html>
