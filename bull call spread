@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bull Call Spread — Повний Гід</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181b22;
+    --border: #1e2230;
+    --accent: #e8431a;
+    --accent2: #f0724a;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --blue: #3b82f6;
+    --purple: #a855f7;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --dim: #94a3b8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* NOISE TEXTURE */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0;
+  }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+    position: relative; z-index: 1;
+  }
+
+  /* HERO */
+  .hero {
+    padding: 60px 0 48px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+  }
+
+  .hero-tag {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 3px 10px;
+    margin-bottom: 20px;
+  }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(36px, 6vw, 64px);
+    font-weight: 800;
+    line-height: 1.0;
+    letter-spacing: -0.02em;
+    color: #d4d8e2;
+  }
+
+  .hero h1 span { color: var(--accent); }
+
+  /* PAYOFF DIAGRAM */
+  .payoff-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 28px;
+    margin-bottom: 48px;
+  }
+
+  .payoff-wrap h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  svg.payoff { width: 100%; height: auto; display: block; overflow: visible; }
+
+  /* SECTIONS */
+  .section { margin-bottom: 56px; }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 28px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    min-width: 28px;
+  }
+
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: #d4d8e2;
+  }
+
+  /* STRUCTURE BOX */
+  .struct-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 640px) { .struct-grid { grid-template-columns: 1fr; } }
+
+  .leg {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 18px;
+    position: relative;
+  }
+
+  .leg.long { border-left: 3px solid var(--green); }
+  .leg.short { border-left: 3px solid var(--red); }
+
+  .leg-action {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .leg.long .leg-action { color: var(--green); }
+  .leg.short .leg-action { color: var(--red); }
+
+  .leg-desc {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: #d4d8e2;
+  }
+
+  .leg-note {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* CARDS */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  @media (max-width: 580px) { .card-grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px;
+  }
+
+  .card-icon { font-size: 22px; margin-bottom: 10px; }
+
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #d4d8e2;
+    margin-bottom: 8px;
+  }
+
+  .card p { color: var(--dim); font-size: 12.5px; }
+
+  /* CONDITIONS TABLE */
+  .cond-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+  }
+
+  .cond-table th {
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .cond-table td {
+    padding: 10px 12px;
+    font-size: 12.5px;
+    border-bottom: 1px solid #0f1118;
+    vertical-align: top;
+    color: var(--dim);
+  }
+
+  .cond-table tr:hover td { background: var(--surface2); }
+
+  .tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 8px;
+    letter-spacing: 0.05em;
+  }
+  .tag.green  { background: rgba(34,197,94,0.12);  color: var(--green); }
+  .tag.red    { background: rgba(239,68,68,0.12);  color: var(--red); }
+  .tag.yellow { background: rgba(245,158,11,0.12); color: var(--yellow); }
+  .tag.blue   { background: rgba(59,130,246,0.12); color: var(--blue); }
+  .tag.purple { background: rgba(168,85,247,0.12); color: var(--purple); }
+  .tag.orange { background: rgba(232,67,26,0.12);  color: var(--accent2); }
+
+  /* STRIKE VARIANTS */
+  .strike-var {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 18px 20px 14px;
+    margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 16px 16px;
+    align-items: start;
+  }
+  .strike-strip { grid-column: 1 / -1; margin-top: 2px; }
+
+  .sv-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  .sv-body { font-size: 12.5px; color: var(--dim); }
+  .sv-body strong { color: var(--text); }
+
+  /* CODE BLOCK */
+  .code-block {
+    background: #070810;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 16px 20px;
+    font-size: 12px;
+    color: var(--dim);
+    margin: 14px 0;
+    line-height: 1.9;
+  }
+
+  .code-block .hl  { color: var(--accent2); }
+  .code-block .val { color: var(--green); }
+  .code-block .cmt { color: #3d4a5c; }
+
+  /* TIMELINE */
+  .timeline {
+    position: relative;
+    padding-left: 24px;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 6px; top: 0; bottom: 0;
+    width: 1px;
+    background: var(--border);
+  }
+
+  .tl-item {
+    position: relative;
+    margin-bottom: 24px;
+  }
+
+  .tl-item::before {
+    content: '';
+    position: absolute;
+    left: -20px; top: 7px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .tl-item.warn::before   { background: var(--yellow); }
+  .tl-item.danger::before { background: var(--red); }
+  .tl-item.safe::before   { background: var(--green); }
+
+  .tl-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: #d4d8e2;
+    margin-bottom: 4px;
+  }
+
+  .tl-text { font-size: 12.5px; color: var(--dim); }
+
+  /* SCENARIO BOXES */
+  .scenario-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 640px) { .scenario-row { grid-template-columns: 1fr; } }
+
+  .scenario {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px;
+  }
+
+  .scenario.bull { border-top: 2px solid var(--green); }
+  .scenario.flat { border-top: 2px solid var(--yellow); }
+  .scenario.bear { border-top: 2px solid var(--red); }
+
+  .sc-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .scenario.bull .sc-label { color: var(--green); }
+  .scenario.flat .sc-label { color: var(--yellow); }
+  .scenario.bear .sc-label { color: var(--red); }
+
+  .sc-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: #d4d8e2; margin-bottom: 6px; }
+  .sc-body   { font-size: 12px; color: var(--muted); }
+
+  /* HEDGE ACCORDION */
+  .hedge-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+
+  .hedge-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    cursor: pointer;
+    user-select: none;
+    gap: 12px;
+  }
+  .hedge-toggle:hover { background: var(--surface2); }
+
+  .hi-left { display: flex; align-items: center; gap: 14px; }
+
+  .hi-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--blue);
+  }
+
+  .hi-brief { font-size: 11.5px; color: var(--muted); }
+
+  .hi-arrow {
+    color: var(--muted);
+    font-size: 11px;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  .hedge-item.open .hi-arrow { transform: rotate(180deg); }
+
+  .hi-body {
+    display: none;
+    padding: 14px 20px 18px;
+    font-size: 12.5px;
+    color: var(--dim);
+    border-top: 1px solid var(--border);
+  }
+  .hedge-item.open .hi-body { display: block; }
+  .hi-body strong { color: var(--text); }
+
+  /* RULE BLOCKS */
+  .rule {
+    display: flex;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px 20px 16px 14px;
+    margin-bottom: 10px;
+    align-items: flex-start;
+  }
+
+  .rule-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--border);
+    line-height: 1.3;
+    min-width: 20px;
+    flex-shrink: 0;
+  }
+
+  .rule-body { font-size: 12.5px; color: var(--dim); }
+  .rule-body strong { color: var(--text); display: block; margin-bottom: 4px; font-size: 13px; }
+
+  /* PNL ZONES */
+  .zones {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 600px) { .zones { grid-template-columns: repeat(2, 1fr); } }
+
+  .zone {
+    background: var(--surface);
+    padding: 16px 14px;
+    text-align: center;
+  }
+
+  .zone-price  { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .zone-result {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .zone-result.profit     { color: var(--green); }
+  .zone-result.max-profit { color: #4ade80; }
+  .zone-result.loss       { color: var(--yellow); }
+  .zone-result.max-loss   { color: var(--red); }
+  .zone-desc { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* CLOSE RULES */
+  .close-rule {
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    background: var(--surface);
+    margin-bottom: 10px;
+    font-size: 12.5px;
+    color: var(--dim);
+  }
+  .close-rule strong { color: #d4d8e2; display: block; margin-bottom: 3px; font-family: 'Syne', sans-serif; font-size: 13px; }
+  .close-rule.green  { border-color: var(--green); }
+  .close-rule.yellow { border-color: var(--yellow); }
+  .close-rule.red    { border-color: var(--red); }
+  .close-rule.blue   { border-color: var(--blue); }
+
+  /* WARNING / INFO BOXES */
+  .warn-box {
+    background: rgba(245,158,11,0.06);
+    border: 1px solid rgba(245,158,11,0.25);
+    padding: 16px 20px;
+    margin: 16px 0;
+    font-size: 12.5px;
+    color: var(--dim);
+  }
+  .warn-box strong { color: var(--yellow); }
+
+  .info-box {
+    background: rgba(59,130,246,0.06);
+    border: 1px solid rgba(59,130,246,0.2);
+    padding: 16px 20px;
+    margin: 16px 0;
+    font-size: 12.5px;
+    color: var(--dim);
+  }
+  .info-box strong { color: var(--blue); }
+
+  /* FOOTER */
+  .footer {
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+
+  h4 { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: #d4d8e2; margin-bottom: 12px; margin-top: 20px; }
+
+  /* POSITION BUILDER BUTTON */
+  .builder-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+    padding: 11px 20px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+    position: relative;
+  }
+  .builder-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .builder-btn:hover { color: #d4d8e2; box-shadow: 0 0 18px rgba(232,67,26,0.35); }
+  .builder-btn:hover::before { opacity: 1; }
+  .builder-btn-icon,
+  .builder-btn-text,
+  .builder-btn-arrow { position: relative; z-index: 1; }
+  .builder-btn-icon  { font-size: 14px; opacity: 0.7; }
+  .builder-btn-arrow { font-size: 14px; transition: transform 0.2s; }
+  .builder-btn:hover .builder-btn-arrow { transform: translate(2px, -2px); }
+
+  /* ── GREEKS BIDIRECTIONAL CHART ─────────────────────────────── */
+  .va-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 20px 24px;
+  }
+  .va-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .va-legend {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--dim);
+    align-items: center;
+  }
+  .va-legend-dot {
+    width: 10px; height: 10px; border-radius: 2px;
+    display: inline-block; margin-right: 5px; vertical-align: middle;
+  }
+  .va-context-note { font-size: 10px; color: #3d4a5c; letter-spacing: 0.03em; }
+
+  .va-axis-labels {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 4px 0 8px;
+    border-bottom: 1px solid #0d1018;
+    margin-bottom: 4px;
+  }
+  .va-label-spacer { width: 108px; flex-shrink: 0; }
+  .va-label-track  { flex: 1; display: flex; align-items: center; position: relative; }
+  .va-label-neg {
+    flex: 1;
+    text-align: right;
+    font-size: 9px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--red);
+    padding-right: 8px;
+  }
+  .va-label-zero {
+    font-size: 9px;
+    color: #4a5568;
+    font-family: 'JetBrains Mono', monospace;
+    width: 2px;
+    text-align: center;
+    position: relative;
+  }
+  .va-label-pos {
+    flex: 1;
+    text-align: left;
+    font-size: 9px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--green);
+    padding-left: 8px;
+  }
+  .va-val-spacer { width: 72px; flex-shrink: 0; }
+
+  .va-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #0d1018;
+    gap: 0;
+  }
+  .va-row:last-child { border-bottom: none; }
+
+  .va-greek-cell {
+    width: 80px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .va-greek {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: #d4d8e2;
+  }
+  .va-sign-tag {
+    display: inline-block;
+    font-size: 9px;
+    letter-spacing: 0.07em;
+    padding: 1px 5px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .va-sign-tag.neg { background: rgba(239,68,68,0.12); color: var(--red); }
+  .va-sign-tag.pos { background: rgba(34,197,94,0.12);  color: var(--green); }
+
+  .va-bars-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .va-entry { display: flex; align-items: center; gap: 0; }
+  .va-bar-label { font-size: 10px; color: var(--muted); width: 28px; flex-shrink: 0; }
+
+  .va-track { flex: 1; display: flex; align-items: center; height: 12px; }
+  .va-neg-side {
+    flex: 1; height: 8px;
+    display: flex; justify-content: flex-end;
+    background: rgba(255,255,255,0.02);
+    overflow: hidden;
+  }
+  .va-pos-side {
+    flex: 1; height: 8px;
+    display: flex; justify-content: flex-start;
+    background: rgba(255,255,255,0.02);
+    overflow: hidden;
+  }
+  .va-zero-mark { width: 2px; height: 14px; background: #4a5568; flex-shrink: 0; z-index: 2; }
+  .va-bar-seg   { height: 100%; border-radius: 2px; flex-shrink: 0; }
+  .va-bar-seg.narrow { background: #4a7ab5; }
+  .va-bar-seg.wide   { background: #b8431a; }
+
+  .va-val {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+    width: 72px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .va-val.neg { color: #6a9fd8; }
+  .va-val.pos { color: #4ade80; }
+
+  @media (max-width: 640px) {
+    .va-label-spacer { width: 78px; }
+    .va-bar-label    { width: 20px; font-size: 9px; }
+    .va-val          { width: 58px; font-size: 9px; }
+    .va-greek-cell   { width: 58px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-tag">Options Strategy</div>
+    <h1>BULL CALL<br><span>SPREAD</span></h1>
+    <a href="#" class="builder-btn" target="_blank">
+      <span class="builder-btn-icon">⬡</span>
+      <span class="builder-btn-text">Відкрити в Position Builder</span>
+      <span class="builder-btn-arrow">↗</span>
+    </a>
+  </div>
+
+  <!-- PAYOFF DIAGRAM -->
+  <div class="payoff-wrap">
+    <h3>P&amp;L Profile — Bull Call Spread (1×1)</h3>
+    <svg class="payoff" viewBox="0 0 700 200" preserveAspectRatio="xMidYMid meet" style="overflow:visible">
+      <defs>
+        <linearGradient id="profGrad" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#22c55e" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="lossGrad" x1="0" x2="0" y1="1" y2="0">
+          <stop offset="0%" stop-color="#ef4444" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="#ef4444" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <!-- grid lines -->
+      <line x1="0" y1="100" x2="700" y2="100" stroke="#1e2230" stroke-width="1"/>
+      <line x1="0" y1="62" x2="700" y2="62" stroke="#1e2230" stroke-width="0.5" stroke-dasharray="4,4"/>
+      <line x1="0" y1="128" x2="700" y2="128" stroke="#1e2230" stroke-width="0.5" stroke-dasharray="4,4"/>
+      <!-- vertical dashed lines — drawn first -->
+      <line x1="270" y1="0" x2="270" y2="190" stroke="#2e4a35" stroke-width="1.2" stroke-dasharray="3,4"/>
+      <line x1="450" y1="0" x2="450" y2="190" stroke="#2e4a35" stroke-width="1.2" stroke-dasharray="3,4"/>
+      <line x1="340" y1="0" x2="340" y2="190" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3,4" opacity="0.6"/>
+      <!-- Loss fill -->
+      <polygon points="0,100 0,128 270,128 340,100" fill="url(#lossGrad)" opacity="0.7"/>
+      <!-- Profit fill -->
+      <polygon points="340,100 450,62 700,62 700,100" fill="url(#profGrad)"/>
+      <!-- P&L line segments -->
+      <polyline points="0,128 270,128" stroke="#ef4444" stroke-width="2" fill="none"/>
+      <polyline points="270,128 340,100" stroke="#f59e0b" stroke-width="2" fill="none"/>
+      <polyline points="340,100 450,62" stroke="#22c55e" stroke-width="2" fill="none"/>
+      <polyline points="450,62 700,62" stroke="#22c55e" stroke-width="2.5" fill="none"/>
+      <!-- Labels -->
+      <text x="335" y="90" fill="#f59e0b" font-size="12" font-family="JetBrains Mono" text-anchor="end">Break Even</text>
+      <text x="270" y="175" fill="#22c55e" font-size="12" font-family="JetBrains Mono" text-anchor="middle">S1 (купівля)</text>
+      <text x="450" y="175" fill="#ef4444" font-size="12" font-family="JetBrains Mono" text-anchor="middle">S2 (продаж)</text>
+      <text x="575" y="50" fill="#22c55e" font-size="12" font-family="JetBrains Mono" text-anchor="middle">Макс. прибуток</text>
+      <!-- Axis labels -->
+      <text x="4" y="96"  fill="#3d4a5c" font-size="9" font-family="JetBrains Mono">0</text>
+      <text x="4" y="58"  fill="#3d4a5c" font-size="9" font-family="JetBrains Mono">+P</text>
+      <text x="4" y="134" fill="#3d4a5c" font-size="9" font-family="JetBrains Mono">−P</text>
+    </svg>
+  </div>
+
+  <!-- SECTION 01: STRUCTURE -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">01</div>
+      <div class="section-title">Структура стратегії</div>
+    </div>
+
+    <div class="struct-grid">
+      <div class="leg long">
+        <div class="leg-action">Купівля × 1</div>
+        <div class="leg-desc">Call S1<br>(нижчий страйк)</div>
+        <div class="leg-note">Ближче до ATM<br>Головна directional нога</div>
+      </div>
+      <div class="leg short">
+        <div class="leg-action">Продаж × 1</div>
+        <div class="leg-desc">Call S2<br>(вищий страйк)</div>
+        <div class="leg-note">Глибше OTM<br>Фінансує S1, обмежує прибуток</div>
+      </div>
+      <div class="leg" style="border-left: 3px solid #3b82f6;">
+        <div class="leg-action" style="color: var(--blue);">Net Result</div>
+        <div class="leg-desc">Net Дебіт</div>
+        <div class="leg-note">Платимо при відкритті. Ризик обмежений дебітом</div>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <span class="cmt">// Базовий приклад: BTC @ 65,000</span><br>
+      <span class="hl">Buy</span>  1× Call S1 = <span class="val">67,000</span>  <span class="cmt">// Δ~0.40, ~3% OTM, платимо ~$1,900</span><br>
+      <span class="hl">Sell</span> 1× Call S2 = <span class="val">70,000</span>  <span class="cmt">// Δ~0.25, ~8% OTM, отримуємо ~$900</span><br><br>
+      <span class="cmt">// Net дебіт: ~$1,000 (платимо при відкритті)</span><br>
+      <span class="cmt">// Реальний entry з bid/ask: ~$1,100–1,200 залежно від ліквідності та часу доби</span><br>
+      <span class="cmt">// Spread width: $3,000 · Max profit: $3,000 − $1,000 = $2,000</span><br><br>
+      <span class="cmt">// P&L зони:</span><br>
+      <span class="hl">Нижче S1</span>    → <span class="val">−$1,000</span>   (обидва expire worthless, втрачаємо дебіт)<br>
+      <span class="hl">S1 → BE</span>     → <span class="val">−збиток</span>   (куплений call набирає вартість, але не покриває дебіт)<br>
+      <span class="hl">Break Even</span>  → <span class="val">±0</span>        (BE @ ~68,000 = S1 + дебіт)<br>
+      <span class="hl">BE → S2</span>     → <span class="val">+прибуток</span> (лонг call ITM, шорт — ні)<br>
+      <span class="hl">Вище S2</span>     → <span class="val">+$2,000</span>   (макс. прибуток, обидва ITM — cap на прибуток)
+    </div>
+
+    <h4>P&L Зони — Швидкий Довідник</h4>
+    <div class="zones">
+      <div class="zone">
+        <div class="zone-price">Нижче S1</div>
+        <div class="zone-result max-loss">−Дебіт</div>
+        <div class="zone-desc">Все expire worthless. Фіксований збиток</div>
+      </div>
+      <div class="zone">
+        <div class="zone-price">S1 → Break Even</div>
+        <div class="zone-result loss">Частковий збиток</div>
+        <div class="zone-desc">Лонг call починає компенсувати дебіт</div>
+      </div>
+      <div class="zone">
+        <div class="zone-price">BE → S2</div>
+        <div class="zone-result profit">Зростаючий прибуток</div>
+        <div class="zone-desc">Лонг call ITM, шорт call — ні</div>
+      </div>
+      <div class="zone">
+        <div class="zone-price">Вище S2</div>
+        <div class="zone-result max-profit">MAX +P&L</div>
+        <div class="zone-desc">Плато. Обидва ITM, cap на spread width − дебіт</div>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>💡 Обмежений ризик з обох боків:</strong> Це головна перевага Bull Call Spread над простим Long Call. Максимальний збиток — лише сплачений дебіт, максимальний прибуток — різниця між страйками мінус дебіт. Жодного unbounded loss.
+    </div>
+
+    <div class="warn-box">
+      <strong>⚠ Реальний дебіт vs теоретичний:</strong> Числові приклади вказують mid-price. На Deribit bid/ask спред для BTC опціонів — зазвичай $80–200 на одну ногу. Для двоногового входу (buy S1 + sell S2) реальний execution коштує на $150–350 дорожче за mid. Враховуй це при оцінці RR і розрахунку стоп-рівнів — базуйся на фактичному дебіті, а не теоретичному.
+    </div>
+  </div>
+
+  <!-- SECTION 02: ENTRY CONDITIONS -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">02</div>
+      <div class="section-title">Умови входу</div>
+    </div>
+
+    <p style="color: var(--dim); margin-bottom: 20px; font-size: 12.5px;">Bull Call Spread — <strong style="color: #d4d8e2;">bullish directional</strong> стратегія. Net delta позитивна: позиція виграє при рості ціни. На відміну від PSR чи шорт-стратегій, ми <em>покупці</em> premium — тому IV важлива з протилежного боку.</p>
+
+    <table class="cond-table">
+      <thead>
+        <tr>
+          <th>Фактор</th>
+          <th>Ідеальний контекст</th>
+          <th>Сигнал</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong style="color:#d4d8e2;">Напрямок</strong></td>
+          <td>Чіткий bullish bias — є каталізатор або технічний рівень для пробою вгору. Без переконання — краще не входити</td>
+          <td><span class="tag green">Bullish</span></td>
+        </tr>
+        <tr>
+          <td><strong style="color:#d4d8e2;">IV Rank / IV Percentile</strong></td>
+          <td>IV відносно низька або середня (IVR &lt; 50% за 1-річним lookback). Купуємо дешевші опціони — менший дебіт, краще RR. При дуже високому IV платимо забагато. <em style="color:var(--muted);">Для крипто практичніший 30-денний IVR як відображення поточного режиму — 1-річний і 30-денний IVR нерідко дають протилежні сигнали в перехідні фази ринку.</em></td>
+          <td><span class="tag blue">Low–Mid IV</span></td>
+        </tr>
+        <tr>
+          <td><strong style="color:#d4d8e2;">IV Skew</strong></td>
+          <td>Call skew знижений або нейтральний. Якщо upside calls торгуються з підвищеним skew — дебіт буде завеликим. Шукай плаский або inverted call skew</td>
+          <td><span class="tag green">Flat Skew</span></td>
+        </tr>
+        <tr>
+          <td><strong style="color:#d4d8e2;">Term Structure</strong></td>
+          <td>Contango (ближні дешевші за дальні) — нейтральна умова. Не критично. Важливіше — конкретна подія або технічна ціль</td>
+          <td><span class="tag yellow">Contango / Flat</span></td>
+        </tr>
+        <tr>
+          <td><strong style="color:#d4d8e2;">Каталізатор</strong></td>
+          <td>Є конкретна причина для бичачого руху: ETF approval, halvingrallyта, макро-розворот, кластер підтримки. Без каталізатора — просто напрямна ставка</td>
+          <td><span class="tag orange">Catalyst</span></td>
+        </tr>
+        <tr>
+          <td><strong style="color:#d4d8e2;">Funding Rate</strong></td>
+          <td>Від'ємний funding rate — ринок перекуплений шортами. Бичачий squeeze може бути різким і швидким. Хороший момент для входу в bull spread. Стабільно позитивний funding (&gt;0.05%/8h і зростає) — підтвердження momentum: ринок платить за лонги, тренд у повній силі, bull spread виправданий як продовження руху</td>
+          <td><span class="tag purple">Funding Signal</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="info-box">
+      <strong>💡 Bull Call Spread vs Long Call:</strong> Long Call дає необмежений upside, але <strong>дорожче і більша theta</strong>. Bull Call Spread дешевший (продаємо S2, що частково покриває дебіт), має менший theta drag, але <strong>cap на прибуток при S2</strong>. Якщо очікуєш рух до конкретного рівня — Spread краще. Якщо очікуєш breakout без чіткої цілі — розглянь Long Call.
+    </div>
+
+    <div class="warn-box">
+      <strong>⚠ Купувати у високу волатильність дорого:</strong> При IVR &gt; 70% вартість дебіту значно зростає. В такому середовищі ліпше або почекати IV crush, або використати шорт-стратегії (Put Spread Ratio, Iron Condor). Купувати Bull Call Spread при IV spike — платити ринку за страх.
+    </div>
+  </div>
+
+  <!-- SECTION 03: STRIKE CONSTRUCTION -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">03</div>
+      <div class="section-title">Формування: страйки та їхній вплив</div>
+    </div>
+
+    <p style="color: var(--dim); font-size: 12.5px; margin-bottom: 20px;">Вибір страйків визначає: скільки платимо, яка ймовірність успіху, де максимальний прибуток і яке RR (risk/reward). Два ключових параметри — де S1 відносно ATM і наскільки широкий spread до S2.</p>
+
+    <div class="info-box" style="margin-bottom:16px;">
+      <strong>💡 Як читати delta call-опціону:</strong> Delta call показує ймовірність закриття ITM і чутливість до руху ціни. Для BTC при IV ~50–60%:<br>
+      <strong>Δ0.50</strong> = ATM &nbsp;·&nbsp; <strong>Δ0.40</strong> ≈ 3–4% OTM &nbsp;·&nbsp; <strong>Δ0.35</strong> ≈ 5–7% OTM &nbsp;·&nbsp; <strong>Δ0.25</strong> ≈ 10–13% OTM &nbsp;·&nbsp; <strong>Δ0.15</strong> ≈ 18–21% OTM &nbsp;·&nbsp; <em style="color:var(--muted);font-size:10px;">значення при IV BTC ~50–60%</em>
+    </div>
+
+    <h4>Варіанти конструкції</h4>
+
+    <!-- Tight Spread -->
+    <div class="strike-var">
+      <div>
+        <div class="sv-label">Tight Spread</div>
+        <div><span class="tag green">Conservative</span></div>
+      </div>
+      <div class="sv-body">
+        <strong>S1: Δ0.40 · S2: Δ0.30 (вузький gap ~6–7%)</strong><br>
+        Менший дебіт — cheaper entry. Max profit досягається при відносно невеликому русі (~9% від spot). Нижче RR у абсолютних цифрах, але вища ймовірність потрапити в зону прибутку. Для помірного bullish сценарію.
+      </div>
+      <div><span class="tag yellow">Low Cost</span></div>
+      <div class="strike-strip">
+        <!-- Scale: Δ0.50=x40, Δ0.40=x101, Δ0.30=x213, Δ0.25=x239, Δ0.15=x378, Δ0.10=x499 · 1%OTM=17.3px -->
+        <svg viewBox="0 0 600 62" style="width:100%;display:block;height:52px;">
+          <line x1="40" y1="32" x2="560" y2="32" stroke="#1e2230" stroke-width="1.5"/>
+          <line x1="101" y1="32" x2="213" y2="32" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <polygon points="40,25 35,16 45,16" fill="#f0724a"/>
+          <text x="40" y="50" fill="#f0724a" font-size="11" font-family="JetBrains Mono" text-anchor="middle">Ціна</text>
+          <circle cx="101" cy="32" r="5" fill="#22c55e"/>
+          <text x="101" y="19" fill="#22c55e" font-size="11" font-family="JetBrains Mono" text-anchor="middle">S1</text>
+          <text x="101" y="50" fill="#22c55e" font-size="11" font-family="JetBrains Mono" text-anchor="middle" opacity="0.75">Δ0.40</text>
+          <circle cx="213" cy="32" r="5" fill="#ef4444"/>
+          <text x="213" y="19" fill="#ef4444" font-size="11" font-family="JetBrains Mono" text-anchor="middle">S2</text>
+          <text x="213" y="50" fill="#ef4444" font-size="11" font-family="JetBrains Mono" text-anchor="middle" opacity="0.75">Δ0.30</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Wide Spread -->
+    <div class="strike-var">
+      <div>
+        <div class="sv-label">Wide Spread</div>
+        <div><span class="tag orange">Aggressive</span></div>
+      </div>
+      <div class="sv-body">
+        <strong>S1: Δ0.40 · S2: Δ0.15 (широкий gap ~17–18%)</strong><br>
+        Більший дебіт, але і більший потенційний прибуток. Max profit при ~18% русі вгору. Реалістичний для крипто, де такий рух за 4–6 тижнів цілком можливий. Підходить при сильному bullish bias і наявності каталізатора.
+      </div>
+      <div><span class="tag red">Higher Cost</span></div>
+      <div class="strike-strip">
+        <svg viewBox="0 0 600 62" style="width:100%;display:block;height:52px;">
+          <line x1="40" y1="32" x2="560" y2="32" stroke="#1e2230" stroke-width="1.5"/>
+          <line x1="101" y1="32" x2="378" y2="32" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <polygon points="40,25 35,16 45,16" fill="#f0724a"/>
+          <text x="40" y="50" fill="#f0724a" font-size="11" font-family="JetBrains Mono" text-anchor="middle">Ціна</text>
+          <circle cx="101" cy="32" r="5" fill="#22c55e"/>
+          <text x="101" y="19" fill="#22c55e" font-size="11" font-family="JetBrains Mono" text-anchor="middle">S1</text>
+          <text x="101" y="50" fill="#22c55e" font-size="11" font-family="JetBrains Mono" text-anchor="middle" opacity="0.75">Δ0.40</text>
+          <circle cx="378" cy="32" r="5" fill="#ef4444"/>
+          <text x="378" y="19" fill="#ef4444" font-size="11" font-family="JetBrains Mono" text-anchor="middle">S2</text>
+          <text x="378" y="50" fill="#ef4444" font-size="11" font-family="JetBrains Mono" text-anchor="middle" opacity="0.75">Δ0.15</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- ATM S1 -->
+    <div class="strike-var">
+      <div>
+        <div class="sv-label">ATM S1</div>
+        <div><span class="tag blue">Directional</span></div>
+      </div>
+      <div class="sv-body">
+        <strong>S1: Δ0.50 · S2: Δ0.20–0.25 (S1 по ринку)</strong><br>
+        Максимальна чутливість до руху ціни при відкритті. ATM call — найдорожчий, дебіт найбільший серед варіантів. Виправданий коли ти впевнений у напрямку і хочеш максимальний delta-exposure із захистом знизу. Підходить перед очікуваним breakout.
+      </div>
+      <div><span class="tag purple">Max Delta</span></div>
+      <div class="strike-strip">
+        <svg viewBox="0 0 600 62" style="width:100%;display:block;height:52px;">
+          <line x1="40" y1="32" x2="560" y2="32" stroke="#1e2230" stroke-width="1.5"/>
+          <line x1="40" y1="32" x2="261" y2="32" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <polygon points="40,25 35,16 45,16" fill="#f0724a"/>
+          <text x="40" y="50" fill="#f0724a" font-size="11" font-family="JetBrains Mono" text-anchor="middle">Ціна</text>
+          <circle cx="40" cy="32" r="5" fill="#22c55e"/>
+          <text x="31" y="36" fill="#22c55e" font-size="11" font-family="JetBrains Mono" text-anchor="end">S1  ATM  Δ0.50</text>
+          <circle cx="261" cy="32" r="5" fill="#ef4444"/>
+          <text x="261" y="19" fill="#ef4444" font-size="11" font-family="JetBrains Mono" text-anchor="middle">S2</text>
+          <text x="261" y="50" fill="#ef4444" font-size="11" font-family="JetBrains Mono" text-anchor="middle" opacity="0.75">Δ0.20–0.25</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Deep OTM / Lottery -->
+    <div class="strike-var">
+      <div>
+        <div class="sv-label">Deep OTM</div>
+        <div><span class="tag yellow">Lottery</span></div>
+      </div>
+      <div class="sv-body">
+        <strong>S1: Δ0.25 · S2: Δ0.10–0.12 (обидва далеко OTM)</strong><br>
+        Дуже дешевий дебіт, але ймовірність прибутку мала. Потрібен значний рух вгору (20%+). "Lottery ticket" підхід — виправданий лише при відомому короткостроковому каталізаторі з потенціалом різкого руху. Будь обережний з ліквідністю S2 нижче Δ0.10.
+      </div>
+      <div><span class="tag red">Low Prob</span></div>
+      <div class="strike-strip">
+        <svg viewBox="0 0 600 62" style="width:100%;display:block;height:52px;">
+          <line x1="40" y1="32" x2="560" y2="32" stroke="#1e2230" stroke-width="1.5"/>
+          <line x1="239" y1="32" x2="499" y2="32" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <polygon points="40,25 35,16 45,16" fill="#f0724a"/>
+          <text x="40" y="50" fill="#f0724a" font-size="11" font-family="JetBrains Mono" text-anchor="middle">Ціна</text>
+          <circle cx="239" cy="32" r="5" fill="#22c55e"/>
+          <text x="239" y="19" fill="#22c55e" font-size="11" font-family="JetBrains Mono" text-anchor="middle">S1</text>
+          <text x="239" y="50" fill="#22c55e" font-size="11" font-family="JetBrains Mono" text-anchor="middle" opacity="0.75">Δ0.25</text>
+          <circle cx="499" cy="32" r="5" fill="#ef4444"/>
+          <text x="499" y="19" fill="#ef4444" font-size="11" font-family="JetBrains Mono" text-anchor="middle">S2</text>
+          <text x="499" y="50" fill="#ef4444" font-size="11" font-family="JetBrains Mono" text-anchor="middle" opacity="0.75">Δ0.10–0.12</text>
+        </svg>
+      </div>
+    </div>
+
+    <h4>Як ширина spread-у впливає на Greeks</h4>
+
+    <div class="va-wrap">
+      <div class="va-header">
+        <div class="va-legend">
+          <span><span class="va-legend-dot" style="background:#4a7ab5"></span>Вузький (S1: Δ0.40 / S2: Δ0.30)</span>
+          <span><span class="va-legend-dot" style="background:#b8431a"></span>Широкий (S1: Δ0.40 / S2: Δ0.15)</span>
+        </div>
+        <span class="va-context-note">* BTC @ 65k · 1 BTC · ~20 DTE · net-debit</span>
+      </div>
+
+      <div class="va-axis-labels">
+        <div class="va-label-spacer"></div>
+        <div class="va-label-track">
+          <div class="va-label-neg">← SHORT / НЕГАТИВ</div>
+          <div class="va-label-zero">0</div>
+          <div class="va-label-pos">ПОЗИТИВ / LONG →</div>
+        </div>
+        <div class="va-val-spacer"></div>
+      </div>
+
+      <!-- DELTA -->
+      <div class="va-row">
+        <div class="va-greek-cell">
+          <div class="va-greek">Delta</div>
+          <span class="va-sign-tag pos">+ net long</span>
+        </div>
+        <div class="va-bars-col">
+          <div class="va-entry">
+            <span class="va-bar-label">Вузький</span>
+            <div class="va-track">
+              <div class="va-neg-side"></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"><div class="va-bar-seg narrow" style="width:32%"></div></div>
+            </div>
+            <span class="va-val pos">+0.10 Δ</span>
+          </div>
+          <div class="va-entry">
+            <span class="va-bar-label">Широкий</span>
+            <div class="va-track">
+              <div class="va-neg-side"></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"><div class="va-bar-seg wide" style="width:80%"></div></div>
+            </div>
+            <span class="va-val pos">+0.25 Δ</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- VEGA -->
+      <div class="va-row">
+        <div class="va-greek-cell">
+          <div class="va-greek">Vega</div>
+          <span class="va-sign-tag pos">+ net long</span>
+        </div>
+        <div class="va-bars-col">
+          <div class="va-entry">
+            <span class="va-bar-label">Вузький</span>
+            <div class="va-track">
+              <div class="va-neg-side"></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"><div class="va-bar-seg narrow" style="width:32%"></div></div>
+            </div>
+            <span class="va-val pos">+$6/1%IV</span>
+          </div>
+          <div class="va-entry">
+            <span class="va-bar-label">Широкий</span>
+            <div class="va-track">
+              <div class="va-neg-side"></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"><div class="va-bar-seg wide" style="width:80%"></div></div>
+            </div>
+            <span class="va-val pos">+$23/1%IV</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- THETA -->
+      <div class="va-row">
+        <div class="va-greek-cell">
+          <div class="va-greek">Theta</div>
+          <span class="va-sign-tag neg">− net short</span>
+        </div>
+        <div class="va-bars-col">
+          <div class="va-entry">
+            <span class="va-bar-label">Вузький</span>
+            <div class="va-track">
+              <div class="va-neg-side"><div class="va-bar-seg narrow" style="width:35%"></div></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"></div>
+            </div>
+            <span class="va-val neg">−$8/день</span>
+          </div>
+          <div class="va-entry">
+            <span class="va-bar-label">Широкий</span>
+            <div class="va-track">
+              <div class="va-neg-side"><div class="va-bar-seg wide" style="width:80%"></div></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"></div>
+            </div>
+            <span class="va-val neg">−$32/день</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- GAMMA -->
+      <div class="va-row">
+        <div class="va-greek-cell">
+          <div class="va-greek">Gamma</div>
+          <span class="va-sign-tag pos">+ net long</span>
+        </div>
+        <div class="va-bars-col">
+          <div class="va-entry">
+            <span class="va-bar-label">Вузький</span>
+            <div class="va-track">
+              <div class="va-neg-side"></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"><div class="va-bar-seg narrow" style="width:30%"></div></div>
+            </div>
+            <span class="va-val pos">+0.0000046 Γ</span>
+          </div>
+          <div class="va-entry">
+            <span class="va-bar-label">Широкий</span>
+            <div class="va-track">
+              <div class="va-neg-side"></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"><div class="va-bar-seg wide" style="width:80%"></div></div>
+            </div>
+            <span class="va-val pos">+0.0000183 Γ</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAX P&L ZONE -->
+      <div class="va-row">
+        <div class="va-greek-cell">
+          <div class="va-greek">Max P&L</div>
+          <span class="va-sign-tag pos">% руху</span>
+        </div>
+        <div class="va-bars-col">
+          <div class="va-entry">
+            <span class="va-bar-label">Вузький</span>
+            <div class="va-track">
+              <div class="va-neg-side"></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"><div class="va-bar-seg narrow" style="width:35%"></div></div>
+            </div>
+            <span class="va-val pos">~9% руху</span>
+          </div>
+          <div class="va-entry">
+            <span class="va-bar-label">Широкий</span>
+            <div class="va-track">
+              <div class="va-neg-side"></div>
+              <div class="va-zero-mark"></div>
+              <div class="va-pos-side"><div class="va-bar-seg wide" style="width:70%"></div></div>
+            </div>
+            <span class="va-val pos">~18% руху</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 04: MANAGEMENT -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">04</div>
+      <div class="section-title">Менеджмент під час позиції</div>
+    </div>
+
+    <div class="card-grid" style="margin-bottom: 24px;">
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <div class="card-title">Delta та напрямок</div>
+        <p>Моніторь net delta щодня. Якщо ціна росте і наближається до S2 — net delta <strong>спадає</strong> (позиція стає менш bullish при наближенні до cap). Це нормально. Якщо ціна падає далеко від S1 — delta зменшується до нуля: позиція «мертва».</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📉</div>
+        <div class="card-title">Theta та час</div>
+        <p>Theta працює проти нас, але менше ніж у чистого Long Call — продаж S2 частково компенсує. Щодня збиваємо ~$8–32 залежно від spread-у. <strong>Theta прискорюється ближче до expiry</strong> — якщо ціна не рухається, втрати зростають.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌊</div>
+        <div class="card-title">Vega — залежить від фази</div>
+        <p>При відкритті (обидва страйки OTM) net vega позитивна: ріст IV підтримує позицію. Але коли ціна наближається до S2, vega S2 стає більшою за vega S1 — і net vega перевертається в негативну. На прибутковій позиції IV spike <strong>зменшує</strong> P&L. Тому при досягненні цілі не варто чекати — якщо ціна між S1 і S2, а IV зростає, це тиск одночасно з двох боків.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🎯</div>
+        <div class="card-title">Cap — не ворог</div>
+        <p>Якщо ціна пробила S2 і торгується вище — позиція вже на максимальному прибутку. Тут варто <strong>закрити або roll S2 вище</strong>, щоб не лишати прибуток на столі. Тримати "ідеальну" позицію без дії — помилка.</p>
+      </div>
+    </div>
+
+    <h4>Сценарії під час позиції</h4>
+    <div class="scenario-row">
+      <div class="scenario bull">
+        <div class="sc-label">Bullish Move</div>
+        <svg viewBox="0 0 100 50" height="44" style="display:block;width:100%;margin-bottom:8px;">
+          <defs>
+            <marker id="arrowG" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#22c55e"/>
+            </marker>
+          </defs>
+          <polyline points="10,44 20,32 28,38 38,24 46,30 56,16 64,22 73,9"
+            stroke="#22c55e" stroke-width="2" fill="none" stroke-linecap="butt" stroke-linejoin="miter"
+            marker-end="url(#arrowG)"/>
+        </svg>
+        <div class="sc-title">Ціна пішла вгору</div>
+        <div class="sc-body">Стратегія виграє. Якщо ціна добралась до S2 — оцінюй закриття або roll S2 вище. Якщо є ще запас часу і впевненість в продовженні — тримай.</div>
+      </div>
+      <div class="scenario flat">
+        <div class="sc-label">Sideways</div>
+        <svg viewBox="0 0 100 50" height="44" style="display:block;width:100%;margin-bottom:8px;">
+          <defs>
+            <marker id="arrowY" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#f59e0b"/>
+            </marker>
+          </defs>
+          <polyline points="8,14 22,36 36,14 50,36 64,14 79,36"
+            stroke="#f59e0b" stroke-width="2" fill="none" stroke-linecap="butt" stroke-linejoin="miter"
+            marker-end="url(#arrowY)"/>
+        </svg>
+        <div class="sc-title">Ціна стоїть</div>
+        <div class="sc-body">Theta повільно з'їдає позицію. Якщо немає каталізатора — розглянь вихід, щоб зафіксувати залишок premium або мінімізувати збиток.</div>
+      </div>
+      <div class="scenario bear">
+        <div class="sc-label">Bearish Move</div>
+        <svg viewBox="0 0 100 50" height="44" style="display:block;width:100%;margin-bottom:8px;">
+          <defs>
+            <marker id="arrowR" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#ef4444"/>
+            </marker>
+          </defs>
+          <polyline points="10,8 20,22 28,12 40,28 48,18 60,34 68,24 77,41"
+            stroke="#ef4444" stroke-width="2" fill="none" stroke-linecap="butt" stroke-linejoin="miter"
+            marker-end="url(#arrowR)"/>
+        </svg>
+        <div class="sc-title">Ціна падає</div>
+        <div class="sc-body">Позиція дорожчає у збитку. Якщо немає нового bullish сценарію — закриватись. Перевага: max loss відомий заздалегідь, паніки бути не повинно.</div>
+      </div>
+    </div>
+
+    <div class="timeline">
+      <div class="tl-item safe">
+        <div class="tl-label">Відкриття — є запас часу</div>
+        <div class="tl-text">Theta drain мінімальний. Позиція має можливість розгорнутись. Обидва страйки OTM — net vega позитивна, ріст IV підтримує позицію на цьому етапі.</div>
+      </div>
+      <div class="tl-item safe">
+        <div class="tl-label">Середина позиції</div>
+        <div class="tl-text">Оцінюй P&L vs план. Якщо заробив 50%+ від max profit — розглядай ранній вихід. Theta починає зростати. Чи діє ще каталізатор?</div>
+      </div>
+      <div class="tl-item warn">
+        <div class="tl-label">Пізня фаза — theta прискорюється</div>
+        <div class="tl-text">Якщо позиція ще не в прибутку — theta стає відчутним тиском. Вартість spread-у падає навіть якщо ціна стоїть. Час для рішення.</div>
+      </div>
+      <div class="tl-item danger">
+        <div class="tl-label">Останні дні — дія або вихід</div>
+        <div class="tl-text">Gamma peak. Якщо ціна близько S1 або між S1–S2 — різкий рух може миттєво змінити P&L. Тримати нерентабельну позицію останні дні — збиткова звичка.</div>
+      </div>
+      <div class="tl-item warn">
+        <div class="tl-label">Вихідні — знижена ліквідність</div>
+        <div class="tl-text">У суботу-неділю обсяги на Deribit падають на 30–50%, bid/ask спреди стають ширшими. Якщо стоп-рівень може спрацювати у вихідні — закладай на 15–25% більше ковзання при виході, ніж у робочий день.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 05: ROLLING -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">05</div>
+      <div class="section-title">Rolling та адаптація позиції</div>
+    </div>
+
+    <p style="color: var(--dim); font-size: 12.5px; margin-bottom: 20px;">Roll дозволяє адаптувати позицію під нові ринкові умови: взяти більше прибутку при сильному русі або зберегти позицію при несприятливому сценарії.</p>
+
+    <div class="rule">
+      <div class="rule-num">R1</div>
+      <div class="rule-body">
+        <strong>Roll S2 Up — ціна досягла або пробила S2</strong>
+        Викупаємо S2 і продаємо новий S2 вище (наступний значимий рівень опору). Це знімає cap і відкриває більший upside. Зазвичай відбувається за дебіт або невелику доплату. <em>Виправданий якщо очікуєш продовження тренду і є підтвердження (обсяги, фундаментал).</em>
+      </div>
+    </div>
+
+    <div class="rule">
+      <div class="rule-num">R2</div>
+      <div class="rule-body">
+        <strong>Roll Out — перенесення в часі</strong>
+        Закриваємо весь spread і перевідкриваємо той самий на наступний expiry. Купуємо час для руху ціни, але платимо за це: різниця між отриманою залишковою вартістю і новим дебітом зазвичай складає $300–600 і більше — особливо якщо IV зросла з моменту першого відкриття. Після двох послідовних roll-out сукупний дебіт може вдвічі перевищити початковий. <em>Виправданий тільки якщо bullish thesis ще дієвий, ризик чітко переоцінений і ти готовий до збільшеного загального ризику.</em>
+      </div>
+    </div>
+
+    <div class="rule">
+      <div class="rule-num">R3</div>
+      <div class="rule-body">
+        <strong>Convert to Long Call — купити назад S2</strong>
+        Якщо виникло сильне переконання в продовженні руху вгору — викупаємо продану S2. Позиція перетворюється на чистий Long Call з необмеженим upside. Платимо більше theta, але знімаємо cap. <em>Тільки при дуже впевненому сценарії — Long Call дорожчий у theta.</em>
+      </div>
+    </div>
+
+    <div class="rule">
+      <div class="rule-num">R4</div>
+      <div class="rule-body">
+        <strong>Roll Down and Out — позиція збиткова, ринок впав</strong>
+        Закриваємо поточний spread зі збитком і відкриваємо новий з нижчим S1 на дальній expiry. Фіксуємо більший дебіт, але даємо позиції ще один шанс. <em>Виправдано тільки якщо macro thesis незмінний і просадка технічна, а не структурна.</em>
+      </div>
+    </div>
+
+    <div class="warn-box">
+      <strong>⚠ Правило №1 rolling:</strong> Не ролюй збиткову позицію щоб "дати їй час" без нового bullish сценарію. Кожен roll-out збільшує сукупний дебіт. Якщо macro розворот — краще закритись, зафіксувати відомий збиток і зберегти капітал для нового входу.
+    </div>
+
+    <div class="warn-box">
+      <strong>⚠ Gap risk і великі події:</strong> BTC регулярно дає overnight gap 5–10%+ на одній свічці при регуляторних заявах, macro-шоках або великих ліквідаціях. Якщо тримаєш spread через FOMC, CPI, або іншу заплановану подію з потенційно різкою реакцією — оціни: чи варто зафіксувати поточний P&L до події, а не після. Gap закриє позицію швидше за будь-який стоп.
+    </div>
+  </div>
+
+  <!-- SECTION 06: EXPIRY SELECTION -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">06</div>
+      <div class="section-title">Вибір expiry</div>
+    </div>
+
+    <p style="color: var(--dim); font-size: 12.5px; margin-bottom: 20px;">Більшість хто торгує Bull Call Spread на крипто тримає позицію <strong style="color:#d4d8e2;">до двох тижнів</strong> — ринок швидкий, каталізатори відпрацьовують швидко, тримати довше часто не має сенсу. Під цей ритм і орієнтовані перші два варіанти. Але довші expiry — це окремий інструмент зі своєю логікою, і знати про нього варто.</p>
+
+    <div class="hedge-item">
+      <div class="hedge-toggle">
+        <div class="hi-left">
+          <span class="tag green">Основний</span>
+          <div>
+            <div class="hi-name">1–2 тижні — під конкретний рух</div>
+            <div class="hi-brief">Є тригер, є ціль, є вікно — входиш</div>
+          </div>
+        </div>
+        <span class="hi-arrow">▼</span>
+      </div>
+      <div class="hi-body">
+        Найбільш природний горизонт для активного крипто-трейдера. Дешевий дебіт, конкретна ціль. Theta агресивна, але крипто рухається достатньо швидко щоб це не було проблемою при правильному вході.<br><br>
+        <strong>Коли це працює:</strong> є технічний пробій або каталізатор (on-chain сигнал, macro подія, рівень ліквідності) з очікуваним відпрацюванням впродовж тижня-двох. Відкрив — отримав результат — вийшов.<br><br>
+        <strong>Головна умова:</strong> без чіткого тригера цей горизонт перетворюється на lottery ticket. Theta залишить від дебіту мало якщо ринок просто стоїть.
+      </div>
+    </div>
+
+    <div class="hedge-item">
+      <div class="hedge-toggle">
+        <div class="hi-left">
+          <span class="tag green">З буфером</span>
+          <div>
+            <div class="hi-name">2–4 тижні — є тригер але ринок може затримати</div>
+            <div class="hi-brief">Той самий сценарій, просто з повітрям</div>
+          </div>
+        </div>
+        <span class="hi-arrow">▼</span>
+      </div>
+      <div class="hi-body">
+        Найпрактичніший варіант якщо хочеш той самий операційний підхід але з меншим нервовим навантаженням. Theta помітно менша, ніж на тижневих. Дає можливість одного roll або перечекати короткочасний відкат без паніки.<br><br>
+        <strong>Відмінність від 1–2 тижнів:</strong> не потрібно щоб ринок рухнув прямо зараз — можна дозволити собі 3–5 днів консолідації. Дебіт вищий, але RR залишається розумним.<br><br>
+        <strong>Практична порада:</strong> якщо є сумніви між тижневим і двотижневим — бери двотижневий. Додаткові дні часто вирішують.
+      </div>
+    </div>
+
+    <div class="hedge-item">
+      <div class="hedge-toggle">
+        <div class="hi-left">
+          <span class="tag yellow">Позиційний</span>
+          <div>
+            <div class="hi-name">4–8 тижнів — позиційна ставка</div>
+            <div class="hi-brief">Інша логіка: менше theta, більший vega</div>
+          </div>
+        </div>
+        <span class="hi-arrow">▼</span>
+      </div>
+      <div class="hi-body">
+        Тут вже зовсім інший підхід до позиції — не "відпрацювати тригер", а "дати тренду час розгорнутись". Theta значно менша відносно загальної вартості, тому ринок може стояти тиждень без критичного впливу на P&L.<br><br>
+        <strong>Де виграє:</strong> якщо купуєш Bull Call Spread в момент коли IV низька — довгий expiry дає більшу vega. При наступному IV spike позиція дорожчає навіть без руху ціни. Це суттєво відрізняє довгий debit spread від короткого.<br><br>
+        <strong>Де програє:</strong> якщо ринок після двох місяців так і не рухнув — дебіт більший і збиток відчутніший. Потрібна витримка і чіткий структурний сценарій.
+      </div>
+    </div>
+
+    <div class="hedge-item">
+      <div class="hedge-toggle">
+        <div class="hi-left">
+          <span class="tag blue">Структурний</span>
+          <div>
+            <div class="hi-name">2–4 місяці — структурна позиція на цикл</div>
+            <div class="hi-brief">Не трейдинг, а тезис на macro рух</div>
+          </div>
+        </div>
+        <span class="hi-arrow">▼</span>
+      </div>
+      <div class="hi-body">
+        Це вже не операційна угода — це вираження macro тезису через опціони. Halving rally, розворот ставок, притік інституційного капіталу. Купуєш Bull Call Spread на 3 місяці і майже не дивишся на нього щодня.<br><br>
+        <strong>Чому це цікаво:</strong> дебіт розбитий на великий часовий горизонт → theta на день мінімальна. Vega максимальна — при будь-якому IV spike отримуєш приємний бонус навіть без руху ціни. Якщо тезис реалізується — RR може бути 3:1 і вище.<br><br>
+        <strong>Нюанс для крипто:</strong> ліквідність на Deribit для expiry 3+ місяці є, але bid/ask ширший. Вхід і вихід потребують терпіння. Не для тих хто звик до швидких угод — але знати про цю механіку варто.
+      </div>
+    </div>
+
+    <div class="info-box" style="margin-top: 16px;">
+      <strong>💡 Правило для операційного горизонту:</strong> Запитай себе — <em>коли конкретно повинен відпрацювати тригер?</em> Бери expiry на 3–5 днів далі за цю дату. Якщо відповіді немає — сценарій ще не готовий.
+    </div>
+  </div>
+
+  <!-- SECTION 07: CLOSING -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">07</div>
+      <div class="section-title">Коли закривати</div>
+    </div>
+
+    <h4>Закриття з прибутком</h4>
+
+    <div class="close-rule green">
+      <strong>50–75% від максимального прибутку — цільовий вихід</strong>
+      При досягненні 50–75% від max P&L — закрити. Залишок прибутку вже важко взяти: потрібен рух точно до S2 і вище. Theta і часова невизначеність роблять утримання після 50%+ менш ефективним.
+    </div>
+
+    <div class="close-rule green">
+      <strong>Ціна пробила S2 і тримається вище</strong>
+      Позиція на максимальному прибутку. Закрити або зробити Roll S2 Up. Тримати spread коли ціна вище S2 — втрачати час, поки cap не дає більше зароблятиi.
+    </div>
+
+    <div class="close-rule green">
+      <strong>Закриття перед каталізатором при достатньому прибутку</strong>
+      Якщо відкривались перед подією і ціна суттєво пішла в потрібному напрямку до її настання — розглядай закриття при 40%+ прибутку ще до події. Після каталізатора IV зазвичай обвалюється, і vega-збиток від IV crush може частково або повністю з'їсти накопичений delta-прибуток. Debit spread вигідніший коли виходиш до IV crush, а не після.
+    </div>
+
+    <h4>Захисне закриття (Stop-Loss)</h4>
+
+    <div class="close-rule yellow">
+      <strong>Позиція втратила 40–50% від дебіту без руху ціни</strong>
+      Якщо ціна стоїть а збиток від theta вже 40–50% дебіту — оцінюй сценарій. Якщо каталізатор зник або відтермінований — краще вийти і зберегти частину капіталу.
+    </div>
+
+    <div class="close-rule red">
+      <strong>Ціна впала нижче S1 на 5–7% і закрилась нижче</strong>
+      Bearish пробій рівня S1 знизу — це сигнал проти тезису. Позиція наближається до max loss. Якщо нового bullish аргументу немає — закрити. Фіксований збиток краще за поступову ерозію через theta.
+    </div>
+
+    <div class="close-rule red">
+      <strong>Повна втрата дебіту — close without questions</strong>
+      Якщо позиція впала до залишкової вартості ~10–15% від відкриття — закрити. Ти вже заплатив свою ставку. Тримати "мертвий" spread в надії на диво — помилка позиційного мислення.
+    </div>
+
+    <div class="close-rule blue">
+      <strong>Зміна macro середовища або скасування каталізатора</strong>
+      Якщо подія, під яку відкривався, відмінена або macro різко змінився (регуляторна заява, war risk) — переоцінити незалежно від P&L. Немає каталізатора — немає тезису — немає причини тримати.
+    </div>
+
+    <div class="info-box">
+      <strong>💡 Загальний принцип:</strong> Bull Call Spread — це <strong>направлена ставка з відомим ризиком</strong>. Ти вже сплатив максимальний збиток у момент відкриття. Тому mentalny тиск від руху ціни вниз має бути мінімальним. Головні рішення: <em>чи діє ще мій тезис?</em> і <em>чи варто roll або закрити при досягненні прибуткової цілі?</em>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    BULL CALL SPREAD GUIDE · by Grind
+  </div>
+
+</div>
+<script>
+  document.querySelectorAll('.hedge-toggle').forEach(function(t) {
+    t.addEventListener('click', function() {
+      t.closest('.hedge-item').classList.toggle('open');
+    });
+  });
+</script>
+</body>
+</html>
